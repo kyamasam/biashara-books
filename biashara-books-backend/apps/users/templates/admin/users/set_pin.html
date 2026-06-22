@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Set PIN{% endblock %}
+
+{% block content %}
+<h1>Set PIN for selected users</h1>
+
+<p>The new PIN will be applied to the following {{ users.count }} user(s):</p>
+<ul>
+  {% for user in users %}
+    <li>{{ user.phone_number }}{% if user.get_full_name %} — {{ user.get_full_name }}{% endif %}</li>
+  {% endfor %}
+</ul>
+
+<form method="post">
+  {% csrf_token %}
+  <input type="hidden" name="ids" value="{{ ids }}">
+  <table>
+    {{ form.as_table }}
+  </table>
+  <div style="margin-top: 1rem;">
+    <input type="submit" value="Set PIN" class="default">
+    <a href="{% url 'admin:users_user_changelist' %}" style="margin-left: 1rem;">Cancel</a>
+  </div>
+</form>
+{% endblock %}
