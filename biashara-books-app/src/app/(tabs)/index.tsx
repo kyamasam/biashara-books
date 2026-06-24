@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BalanceSummary } from '@/components/home/balance-summary';
@@ -7,11 +8,21 @@ import { HomeHeader } from '@/components/home/home-header';
 import { QuickActions } from '@/components/home/quick-actions';
 import { TransactionSection } from '@/components/home/transaction-section';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { useUserStore } from '@/store/user-store';
 
 export default function HomeScreen() {
     const safeAreaInsets = useSafeAreaInsets();
     const theme = useTheme();
+    const { accessToken } = useAuth();
+    const isLoadingUser = useUserStore((s) => s.isLoading);
+    const fetchUser = useUserStore((s) => s.fetchUser);
+    const handleRefresh = useCallback(() => {
+        if (accessToken) {
+            void fetchUser(accessToken);
+        }
+    }, [accessToken, fetchUser]);
 
     return (
         <ScrollView
@@ -25,7 +36,15 @@ export default function HomeScreen() {
                     paddingRight: safeAreaInsets.right + Spacing.two,
                 },
             ]}
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+                <RefreshControl
+                    refreshing={isLoadingUser}
+                    onRefresh={handleRefresh}
+                    tintColor={theme.text}
+                    colors={[theme.text]}
+                />
+            }>
             <View style={styles.page}>
                 <HomeHeader />
                 <BalanceSummary />

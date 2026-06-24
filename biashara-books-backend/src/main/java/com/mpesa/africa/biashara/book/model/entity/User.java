@@ -26,6 +26,7 @@ public class User {
     private String phoneCode;
     private String phoneNumber;
     private String pinHash;
+    private UUID currentBusinessId;
 
     @CreatedDate
     private LocalDateTime createdAt;

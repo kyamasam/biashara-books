@@ -1,7 +1,9 @@
 package com.mpesa.africa.biashara.book.service;
 
 import com.mpesa.africa.biashara.book.exception.CustomException;
+import com.mpesa.africa.biashara.book.model.dto.response.UserResponse;
 import com.mpesa.africa.biashara.book.model.entity.User;
+import com.mpesa.africa.biashara.book.repository.BusinessRepository;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,11 +20,21 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final BusinessRepository businessRepository;
     private final PasswordEncoder passwordEncoder;
 
     public Mono<User> getUserById(UUID id) {
         return userRepository.findById(id)
                 .switchIfEmpty(Mono.error(new CustomException("User not found")));
+    }
+
+    public Mono<UserResponse> getCurrentUserWithBusiness(UUID id) {
+        return getUserById(id)
+                .flatMap(user -> Mono.justOrEmpty(user.getCurrentBusinessId())
+                        .flatMap(businessRepository::findById)
+                        .filter(business -> business.getUserId().equals(user.getId()))
+                        .map(business -> UserResponse.from(user, business))
+                        .defaultIfEmpty(UserResponse.from(user, null)));
     }
 
     public Mono<User> getUserByUsername(String username) {
@@ -51,5 +63,17 @@ public class UserService {
 
     public Mono<Boolean> existsByEmail(String email) {
         return userRepository.existsByEmail(email);
+    }
+
+    public Mono<User> setCurrentBusiness(UUID userId, UUID businessId) {
+        return businessRepository.findById(businessId)
+                .filter(business -> business.getUserId().equals(userId))
+                .switchIfEmpty(Mono.error(new CustomException("Business not found or access denied")))
+                .then(userRepository.findById(userId))
+                .switchIfEmpty(Mono.error(new CustomException("User not found")))
+                .flatMap(user -> {
+                    user.setCurrentBusinessId(businessId);
+                    return userRepository.save(user);
+                });
     }
 }

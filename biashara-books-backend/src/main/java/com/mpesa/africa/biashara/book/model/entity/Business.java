@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,6 +25,8 @@ public class Business {
     private UUID userId;
     private String shortCode;
     private String shortCodeType;
+    private BigDecimal shortcodeBalance;
+    private BigDecimal shortcodeLoanLimit;
 
     @CreatedDate
     private LocalDateTime createdAt;

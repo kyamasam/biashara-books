@@ -12,12 +12,21 @@ import java.util.UUID;
 @Repository
 public interface ExpenseRepository extends ReactiveCrudRepository<Expense, UUID> {
 
-    @Query("SELECT * FROM expenses WHERE user_id = $1")
+    @Query("SELECT * FROM expenses WHERE user_id = :userId")
     Flux<Expense> findByUserId(UUID userId);
 
-    @Query("SELECT * FROM expenses WHERE user_id = $1 AND expense_type_id = $2")
+    @Query("SELECT * FROM expenses WHERE business_id = :businessId")
+    Flux<Expense> findByBusinessId(UUID businessId);
+
+    @Query("SELECT * FROM expenses WHERE user_id = :userId AND expense_type_id = :expenseTypeId")
     Flux<Expense> findByUserIdAndExpenseTypeId(UUID userId, UUID expenseTypeId);
 
-    @Query("SELECT SUM(expense_amount) FROM expenses WHERE user_id = $1")
+    @Query("SELECT * FROM expenses WHERE business_id = :businessId AND expense_type_id = :expenseTypeId")
+    Flux<Expense> findByBusinessIdAndExpenseTypeId(UUID businessId, UUID expenseTypeId);
+
+    @Query("SELECT SUM(expense_amount) FROM expenses WHERE user_id = :userId")
     Mono<Double> sumExpenseAmountByUserId(UUID userId);
+
+    @Query("SELECT SUM(expense_amount) FROM expenses WHERE business_id = :businessId")
+    Mono<Double> sumExpenseAmountByBusinessId(UUID businessId);
 }

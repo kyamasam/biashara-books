@@ -1,0 +1,3 @@
+ALTER TABLE business
+    ADD COLUMN IF NOT EXISTS shortcode_balance   NUMERIC(19, 4) NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS shortcode_loan_limit NUMERIC(19, 4) NOT NULL DEFAULT 0;

@@ -5,9 +5,11 @@ import { IconButton } from '@/components/home/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
+import { useUserStore } from '@/store/user-store';
 
 export function HomeHeader() {
   const { logout } = useAuth();
+  const user = useUserStore((s) => s.user);
 
   function handleLogout() {
     Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -32,9 +34,11 @@ export function HomeHeader() {
       <View style={styles.profile}>
         <Avatar />
         <View style={styles.profileText}>
-          <ThemedText style={styles.businessName}>Fastduka Software</ThemedText>
+          <ThemedText style={styles.businessName}>
+            {user?.currentBusiness?.name ?? '—'}
+          </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.ownerName}>
-            Samuel Muasya
+            {user?.username ?? '—'}
           </ThemedText>
         </View>
       </View>

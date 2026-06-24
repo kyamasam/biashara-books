@@ -3,19 +3,32 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AppIcon } from '@/components/ui/app-icon';
 import { Spacing } from '@/constants/theme';
+import { useUserStore } from '@/store/user-store';
+
+function formatKes(amount: number | undefined): string {
+  if (amount == null) return 'KSH. —';
+  return `KSH. ${amount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export function BalanceSummary() {
+  const user = useUserStore((s) => s.user);
+  const business = user?.currentBusiness;
+
+  const paybillLabel = business
+    ? `${business.shortCodeType.charAt(0).toUpperCase() + business.shortCodeType.slice(1)} - ${business.shortCode}`
+    : '—';
+
   return (
     <View style={styles.summary}>
       <ThemedText themeColor="textSecondary" style={styles.paybill}>
-        Paybill - 711 6791
+        {paybillLabel}
       </ThemedText>
 
-      <ThemedText style={styles.balance}>KSH. 141,941.11</ThemedText>
+      <ThemedText style={styles.balance}>{formatKes(business?.shortcodeBalance)}</ThemedText>
 
       <View style={styles.loanLimit}>
         <ThemedText themeColor="textSecondary" style={styles.loanLimitText}>
-          Loan Limit KES 3,000,000
+          Loan Limit {formatKes(business?.shortcodeLoanLimit)}
         </ThemedText>
         <View style={styles.applyAction}>
           <ThemedText type="linkPrimary" style={styles.applyLink}>

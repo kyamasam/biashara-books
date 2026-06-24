@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Slf4j
@@ -27,6 +28,8 @@ public class BusinessService {
                 .userId(userId)
                 .shortCode(request.getShortCode())
                 .shortCodeType(request.getShortCodeType())
+                .shortcodeBalance(defaultAmount(request.getShortcodeBalance()))
+                .shortcodeLoanLimit(defaultAmount(request.getShortcodeLoanLimit()))
                 .build();
 
         return businessRepository.save(business);
@@ -50,6 +53,8 @@ public class BusinessService {
                     existingBusiness.setName(request.getName());
                     existingBusiness.setShortCode(request.getShortCode());
                     existingBusiness.setShortCodeType(request.getShortCodeType());
+                    existingBusiness.setShortcodeBalance(defaultAmount(request.getShortcodeBalance()));
+                    existingBusiness.setShortcodeLoanLimit(defaultAmount(request.getShortcodeLoanLimit()));
                     return businessRepository.save(existingBusiness);
                 });
     }
@@ -59,5 +64,9 @@ public class BusinessService {
                 .filter(business -> business.getUserId().equals(userId))
                 .switchIfEmpty(Mono.error(new CustomException("Business not found or access denied")))
                 .flatMap(businessRepository::delete);
+    }
+
+    private BigDecimal defaultAmount(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
     }
 }

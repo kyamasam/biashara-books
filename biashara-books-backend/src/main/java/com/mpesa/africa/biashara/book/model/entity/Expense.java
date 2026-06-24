@@ -26,6 +26,7 @@ public class Expense {
     private BigDecimal expenseAmount;
     private UUID transactionId;
     private UUID userId;
+    private UUID businessId;
 
     @CreatedDate
     private LocalDateTime createdAt;

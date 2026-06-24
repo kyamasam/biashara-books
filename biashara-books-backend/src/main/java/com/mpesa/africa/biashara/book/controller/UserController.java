@@ -1,9 +1,12 @@
 package com.mpesa.africa.biashara.book.controller;
 
 import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
+import com.mpesa.africa.biashara.book.model.dto.request.SetCurrentBusinessRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.UserResponse;
 import com.mpesa.africa.biashara.book.model.entity.User;
 import com.mpesa.africa.biashara.book.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,10 +26,10 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/me")
-    public Mono<ApiResponse<User>> getCurrentUser() {
+    public Mono<ApiResponse<UserResponse>> getCurrentUser() {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching current user: {}", userId);
-            return userService.getUserById(userId);
+            return userService.getCurrentUserWithBusiness(userId);
         }).map(user -> ApiResponse.success(user, "User retrieved successfully"));
     }
 
@@ -55,6 +58,14 @@ public class UserController {
         log.info("Fetching user by email: {}", email);
         return userService.getUserByEmail(email)
                 .map(user -> ApiResponse.success(user, "User retrieved successfully"));
+    }
+
+    @PutMapping("/me/current-business")
+    public Mono<ApiResponse<User>> setCurrentBusiness(@Valid @RequestBody SetCurrentBusinessRequest request) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Setting current business {} for user: {}", request.getBusinessId(), userId);
+            return userService.setCurrentBusiness(userId, request.getBusinessId());
+        }).map(user -> ApiResponse.success(user, "Current business updated successfully"));
     }
 
     @DeleteMapping("/{id}")

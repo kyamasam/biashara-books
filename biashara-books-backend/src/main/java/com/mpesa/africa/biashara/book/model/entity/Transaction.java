@@ -26,14 +26,17 @@ public class Transaction {
     private TransactionType transactionType;
     private TransactionMethod transactionMethod;
     private TransactionPurpose transactionPurpose;
+    private String transactionPurposeDetail;
     private String confirmationCode;
     private BigDecimal transactionAmount;
     private PaymentChannel paymentChannel;
     private String receiverNumber;
+    private String receiverName;
     private String receiverAccount;
     private TransactionStatus transactionStatus;
     private String transactionStatusDetails;
     private String senderNumber;
+    private String senderName;
     private String reconciliationId;
     private Map<String, Object> callbackResp;
     private UUID userId;

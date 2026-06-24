@@ -6,6 +6,7 @@ import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
 import com.mpesa.africa.biashara.book.model.entity.Transaction;
 import com.mpesa.africa.biashara.book.model.enums.TransactionStatus;
 import com.mpesa.africa.biashara.book.service.TransactionService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,9 @@ public class TransactionController {
     }
 
     @GetMapping("/recent")
-    public Mono<ApiResponse<List<Transaction>>> getRecentTransactions(@RequestParam(defaultValue = "10") int limit) {
+    public Mono<ApiResponse<List<Transaction>>> getRecentTransactions(
+            @Parameter(description = "Maximum number of recent transactions to return.", example = "10")
+            @RequestParam(defaultValue = "10") int limit) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching recent transactions for user: {}", userId);
             return transactionService.getRecentTransactions(userId, limit).collectList();
@@ -61,7 +64,18 @@ public class TransactionController {
     @PatchMapping("/{id}/status")
     public Mono<ApiResponse<Transaction>> updateTransactionStatus(
             @PathVariable UUID id,
+            @Parameter(
+                    description = """
+                            New processing state.
+                            Options:
+                            - initiated: Transaction has been created and is awaiting confirmation.
+                            - success: Transaction completed successfully.
+                            - failed: Transaction did not complete successfully.
+                            """,
+                    example = "success"
+            )
             @RequestParam TransactionStatus status,
+            @Parameter(description = "Optional human-readable status note or provider failure reason.", example = "M-PESA callback confirmed payment")
             @RequestParam(required = false) String details) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Updating transaction status: {} for user: {}", id, userId);
@@ -72,6 +86,7 @@ public class TransactionController {
     @PatchMapping("/{id}/callback")
     public Mono<ApiResponse<Transaction>> updateTransactionCallback(
             @PathVariable UUID id,
+            @Parameter(description = "External reconciliation or checkout request identifier used to match callbacks.", example = "ws_CO_240620261230001234567890")
             @RequestParam String reconciliationId,
             @RequestBody Object callbackResp) {
         return getCurrentUserId().flatMap(userId -> {
