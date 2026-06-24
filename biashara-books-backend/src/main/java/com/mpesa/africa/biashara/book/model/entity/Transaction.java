@@ -40,6 +40,7 @@ public class Transaction {
     private String reconciliationId;
     private Map<String, Object> callbackResp;
     private UUID userId;
+    private UUID businessId;
 
     @CreatedDate
     private LocalDateTime createdAt;

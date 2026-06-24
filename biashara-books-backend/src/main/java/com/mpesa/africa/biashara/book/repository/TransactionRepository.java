@@ -16,12 +16,27 @@ public interface TransactionRepository extends ReactiveCrudRepository<Transactio
     @Query("SELECT * FROM transaction WHERE user_id = $1")
     Flux<Transaction> findByUserId(UUID userId);
 
+    @Query("SELECT * FROM transaction WHERE business_id = $1")
+    Flux<Transaction> findByBusinessId(UUID businessId);
+
+    @Query("SELECT * FROM transaction WHERE business_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
+    Flux<Transaction> findByBusinessId(UUID businessId, int limit, long offset);
+
+    @Query("SELECT COUNT(*) FROM transaction WHERE business_id = $1")
+    Mono<Long> countByBusinessId(UUID businessId);
+
     @Query("SELECT * FROM transaction WHERE transaction_status = $1")
     Flux<Transaction> findByStatus(TransactionStatus status);
+
+    @Query("SELECT * FROM transaction WHERE business_id = $1 AND transaction_status = $2")
+    Flux<Transaction> findByBusinessIdAndStatus(UUID businessId, TransactionStatus status);
 
     @Query("SELECT * FROM transaction WHERE reconciliation_id = $1")
     Mono<Transaction> findByReconciliationId(String reconciliationId);
 
     @Query("SELECT * FROM transaction WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2")
     Flux<Transaction> findRecentByUserId(UUID userId, int limit);
+
+    @Query("SELECT * FROM transaction WHERE business_id = $1 ORDER BY created_at DESC LIMIT $2")
+    Flux<Transaction> findRecentByBusinessId(UUID businessId, int limit);
 }

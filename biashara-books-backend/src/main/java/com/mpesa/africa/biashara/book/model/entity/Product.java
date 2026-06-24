@@ -25,6 +25,7 @@ public class Product {
     private String description;
     private UUID productCategoryId;
     private UUID userId;
+    private UUID businessId;
 
     @CreatedDate
     private LocalDateTime createdAt;

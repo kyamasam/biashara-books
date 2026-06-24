@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -18,6 +19,9 @@ import java.util.Map;
 @AllArgsConstructor
 @Schema(description = "Payload used to record or initiate a business transaction.")
 public class TransactionRequest {
+    @Schema(description = "Business ID to attach this transaction to. If omitted, the authenticated user's current business is used.")
+    private UUID businessId;
+
     @NotNull(message = "Transaction type is required")
     @Schema(
             description = """

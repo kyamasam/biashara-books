@@ -110,6 +110,8 @@ All endpoints (except auth) require a Bearer JWT token in the `Authorization` he
 
 A Postman collection is included at [postman-collection.json](postman-collection.json) and an MVP-scoped subset at [mvp-collection.json](mvp-collection.json).
 
+Detailed transaction request formats, statuses, and enum options are documented in [docs/transactions-api.md](docs/transactions-api.md).
+
 ## Project Structure
 
 ```
