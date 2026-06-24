@@ -136,7 +136,7 @@ public class TransactionController {
                     Returns transactions for the authenticated user's current business.
 
                     Pagination:
-                    - `page` is zero-based and defaults to `0`.
+                    - `page` is one-based and defaults to `1`.
                     - `size` defaults to `20`.
                     - `size` is clamped to the range `1` to `100`.
                     - Results are sorted by `createdAt` descending.
@@ -167,7 +167,7 @@ public class TransactionController {
                                                     "transactionStatus": "initiated"
                                                   }
                                                 ],
-                                                "page": 0,
+                                                "page": 1,
                                                 "size": 20,
                                                 "totalElements": 1,
                                                 "totalPages": 1,
@@ -186,22 +186,22 @@ public class TransactionController {
     @GetMapping
     public Mono<ApiResponse<PageResponse<Transaction>>> getAllTransactions(
             @Parameter(
-                    description = "Zero-based page number. Negative values are treated as `0`.",
-                    example = "0",
-                    schema = @Schema(type = "integer", defaultValue = "0", minimum = "0")
+                    description = "One-based page number. Values below `1` are treated as `1`.",
+                    example = "1",
+                    schema = @Schema(type = "integer", defaultValue = "1", minimum = "1")
             )
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @Parameter(
                     description = "Number of transactions per page. Values below `1` become `1`; values above `100` become `100`.",
                     example = "20",
                     schema = @Schema(type = "integer", defaultValue = "20", minimum = "1", maximum = "100")
             )
             @RequestParam(defaultValue = "20") int size) {
-        int safePage = Math.max(page, 0);
+        int safePage = Math.max(page, 1);
         int safeSize = Math.min(Math.max(size, 1), 100);
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching transactions page: {} size: {} for user: {}", safePage, safeSize, userId);
-            return transactionService.getTransactionsPage(userId, PageRequest.of(safePage, safeSize));
+            return transactionService.getTransactionsPage(userId, PageRequest.of(safePage - 1, safeSize));
         }).map(transactions -> ApiResponse.success(PageResponse.from(transactions), "Transactions retrieved successfully"));
     }
 

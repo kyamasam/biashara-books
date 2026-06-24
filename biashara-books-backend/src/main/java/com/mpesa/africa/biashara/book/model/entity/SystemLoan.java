@@ -29,6 +29,7 @@ public class SystemLoan {
     private BigDecimal monthlyRepaymentAmount;
     private LocalDate endDate;
     private UUID userId;
+    private UUID businessId;
 
     @CreatedDate
     private LocalDateTime createdAt;

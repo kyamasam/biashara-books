@@ -1,15 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BalanceSummary } from '@/components/home/balance-summary';
-import { HOME_ACTIONS, TRANSACTION_GROUPS } from '@/components/home/home-data';
+import { HOME_ACTIONS } from '@/components/home/home-data';
 import { HomeHeader } from '@/components/home/home-header';
 import { QuickActions } from '@/components/home/quick-actions';
 import { TransactionSection } from '@/components/home/transaction-section';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { useTransactionStore } from '@/store/transaction-store';
 import { useUserStore } from '@/store/user-store';
 
 export default function HomeScreen() {
@@ -18,11 +19,22 @@ export default function HomeScreen() {
     const { accessToken } = useAuth();
     const isLoadingUser = useUserStore((s) => s.isLoading);
     const fetchUser = useUserStore((s) => s.fetchUser);
+    const groups = useTransactionStore((s) => s.groups);
+    const isLoadingTransactions = useTransactionStore((s) => s.isLoading);
+    const fetchTransactions = useTransactionStore((s) => s.fetchTransactions);
+
+    useEffect(() => {
+        if (accessToken) {
+            void fetchTransactions(accessToken);
+        }
+    }, [accessToken, fetchTransactions]);
+
     const handleRefresh = useCallback(() => {
         if (accessToken) {
             void fetchUser(accessToken);
+            void fetchTransactions(accessToken);
         }
-    }, [accessToken, fetchUser]);
+    }, [accessToken, fetchUser, fetchTransactions]);
 
     return (
         <ScrollView
@@ -39,7 +51,7 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
             refreshControl={
                 <RefreshControl
-                    refreshing={isLoadingUser}
+                    refreshing={isLoadingUser || isLoadingTransactions}
                     onRefresh={handleRefresh}
                     tintColor={theme.text}
                     colors={[theme.text]}
@@ -49,7 +61,7 @@ export default function HomeScreen() {
                 <HomeHeader />
                 <BalanceSummary />
                 <QuickActions actions={HOME_ACTIONS} />
-                <TransactionSection groups={TRANSACTION_GROUPS} />
+                <TransactionSection groups={groups} />
             </View>
         </ScrollView>
     );
