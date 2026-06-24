@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="com.bridgecrew.services.ResultsService">
+    <option name="categories">
+      <map>
+        <entry key="IAC">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="SCA">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="SECRETS">
+          <value>
+            <list>
+              <option value="67642430-1149-499f-bcd5-81ad52772cb5" />
+            </list>
+          </value>
+        </entry>
+        <entry key="LICENSES">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="WEAKNESSES">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="OSS">
+          <value>
+            <list />
+          </value>
+        </entry>
+        <entry key="UNCATEGORIZED">
+          <value>
+            <list />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="files">
+      <map>
+        <entry key="$PROJECT_DIR$/src/main/resources/application.properties">
+          <value>
+            <list>
+              <option value="67642430-1149-499f-bcd5-81ad52772cb5" />
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="results">
+      <map>
+        <entry key="67642430-1149-499f-bcd5-81ad52772cb5">
+          <value>
+            <ScanResult>
+              <option name="codeAnnotation">
+                <map>
+                  <entry key="11">
+                    <value>
+                      <ScanResultCodeAnnotation>
+                        <option name="row" value="11" />
+                        <option name="text" value="# spring.cloud.config.password=qXIPBm**********" />
+                        <option name="displayType" value="INFO" />
+                      </ScanResultCodeAnnotation>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+              <option name="documentation" value="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/secrets-policies/secrets-policy-index/git-secrets-6" />
+              <option name="originalResult" value="{&quot;check_id&quot;:&quot;CKV_SECRET_6&quot;,&quot;bc_check_id&quot;:&quot;BC_GIT_6&quot;,&quot;check_name&quot;:&quot;Base64 High Entropy String&quot;,&quot;code_block&quot;:[[11,&quot;# spring.cloud.config.password=qXIPBm**********\n&quot;]],&quot;file_abs_path&quot;:&quot;/Users/patrick/Engineering/biashara_books/src/main/resources/application.properties&quot;,&quot;repo_file_path&quot;:&quot;/src/main/resources/application.properties&quot;,&quot;file_line_range&quot;:[11,12],&quot;guideline&quot;:&quot;https://docs.prismacloud.io/en/enterprise-edition/policy-reference/secrets-policies/secrets-policy-index/git-secrets-6&quot;,&quot;resource&quot;:&quot;e6503bba9068c45a829b940d7d6c1f7dd4a1c19b&quot;,&quot;description&quot;:null,&quot;short_description&quot;:null,&quot;validation_status&quot;:&quot;Unavailable&quot;,&quot;check_result&quot;:{&quot;evaluated_keys&quot;:null,&quot;inspected_key&quot;:&quot;&quot;}}" />
+              <option name="platformCheckId" value="BC_GIT_6" />
+              <option name="secretValidation" value="UNAVAILABLE" />
+              <option name="suppressible" value="true" />
+              <option name="id" value="67642430-1149-499f-bcd5-81ad52772cb5" />
+              <option name="category" value="SECRETS" />
+              <option name="framework" value="SECRETS" />
+              <option name="checkId" value="CKV_SECRET_6" />
+              <option name="checkName" value="Base64 High Entropy String" />
+              <option name="resultName" value="Base64 High Entropy String" />
+              <option name="popupTitle" value="Base64 High Entropy String" />
+              <option name="resource" value="e6503bba9068c45a829b940d7d6c1f7dd4a1c19b" />
+              <option name="lineRange">
+                <Range>
+                  <option name="end" value="12" />
+                  <option name="start" value="11" />
+                </Range>
+              </option>
+              <option name="fileDetails">
+                <ScanResultFileDetails>
+                  <option name="absolutePath" value="$PROJECT_DIR$/src/main/resources/application.properties" />
+                  <option name="relativePath" value="/src/main/resources/application.properties" />
+                  <option name="fileName" value="application.properties" />
+                  <option name="extension" value=".properties" />
+                </ScanResultFileDetails>
+              </option>
+            </ScanResult>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="summary">
+      <ScanSummary>
+        <option name="failed" value="1" />
+      </ScanSummary>
+    </option>
+  </component>
+</project>
