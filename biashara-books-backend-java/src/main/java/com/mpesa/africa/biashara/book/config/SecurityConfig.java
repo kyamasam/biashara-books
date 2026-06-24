@@ -30,7 +30,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeExchange(auth -> auth
-                        .pathMatchers("/api/auth/**", "/api/public/**", "/actuator/health").permitAll()
+                        .pathMatchers(
+                                "/api/auth/**", "/api/public/**", "/actuator/health",
+                                "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**"
+                        ).permitAll()
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(jwtAuthenticationFilter(), SecurityWebFiltersOrder.AUTHENTICATION)

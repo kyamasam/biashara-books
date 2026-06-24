@@ -4,6 +4,7 @@ import com.mpesa.africa.biashara.book.config.JwtTokenProvider;
 import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.request.AuthRequest;
 import com.mpesa.africa.biashara.book.model.dto.request.LoginRequest;
+import com.mpesa.africa.biashara.book.model.dto.request.PinLoginRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.AuthResponse;
 import com.mpesa.africa.biashara.book.model.entity.User;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
@@ -29,7 +30,8 @@ public class AuthService {
 
         return Mono.zip(
                         userRepository.existsByUsername(request.getUsername()),
-                        userRepository.existsByEmail(request.getEmail())
+                        userRepository.existsByEmail(request.getEmail()),
+                        userRepository.existsByPhoneNumber(request.getPhoneNumber())
                 )
                 .flatMap(tuple -> {
                     if (tuple.getT1()) {
@@ -38,11 +40,17 @@ public class AuthService {
                     if (tuple.getT2()) {
                         return Mono.error(new CustomException("Email already exists"));
                     }
+                    if (tuple.getT3()) {
+                        return Mono.error(new CustomException("Phone number already registered"));
+                    }
 
                     User user = User.builder()
                             .username(request.getUsername())
                             .email(request.getEmail())
                             .passwordHash(passwordEncoder.encode(request.getPassword()))
+                            .phoneCode(request.getPhoneCode())
+                            .phoneNumber(request.getPhoneNumber())
+                            .pinHash(passwordEncoder.encode(request.getPin()))
                             .build();
 
                     return userRepository.save(user)
@@ -53,6 +61,8 @@ public class AuthService {
                                         .userId(savedUser.getId())
                                         .username(savedUser.getUsername())
                                         .email(savedUser.getEmail())
+                                        .phoneCode(savedUser.getPhoneCode())
+                                        .phoneNumber(savedUser.getPhoneNumber())
                                         .build());
                             });
                 });
@@ -74,6 +84,30 @@ public class AuthService {
                             .userId(user.getId())
                             .username(user.getUsername())
                             .email(user.getEmail())
+                            .phoneCode(user.getPhoneCode())
+                            .phoneNumber(user.getPhoneNumber())
+                            .build());
+                });
+    }
+
+    public Mono<AuthResponse> loginWithPin(PinLoginRequest request) {
+        log.info("PIN login attempt for phone: {}", request.getPhoneNumber());
+
+        return userRepository.findByPhoneNumber(request.getPhoneNumber())
+                .switchIfEmpty(Mono.error(new CustomException("Invalid phone number or PIN")))
+                .flatMap(user -> {
+                    if (user.getPinHash() == null || !passwordEncoder.matches(request.getPin(), user.getPinHash())) {
+                        return Mono.error(new CustomException("Invalid phone number or PIN"));
+                    }
+
+                    String token = tokenProvider.generateToken(user.getId(), user.getUsername());
+                    return Mono.just(AuthResponse.builder()
+                            .token(token)
+                            .userId(user.getId())
+                            .username(user.getUsername())
+                            .email(user.getEmail())
+                            .phoneCode(user.getPhoneCode())
+                            .phoneNumber(user.getPhoneNumber())
                             .build());
                 });
     }

@@ -1,6 +1,6 @@
 import { ApiError } from './api-error';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 type RequestBody = Record<string, unknown>;
 
@@ -31,7 +31,7 @@ function parseApiError(data: Record<string, unknown>): ApiError {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${path}`;
+  const url = `${BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',

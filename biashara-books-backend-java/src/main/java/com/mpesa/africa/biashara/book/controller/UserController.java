@@ -1,13 +1,13 @@
 package com.mpesa.africa.biashara.book.controller;
 
-import com.mpesa.africa.biashara.book.config.JwtTokenProvider;
+import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
 import com.mpesa.africa.biashara.book.model.entity.User;
 import com.mpesa.africa.biashara.book.service.UserService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -21,14 +21,13 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final JwtTokenProvider tokenProvider;
 
     @GetMapping("/me")
-    public Mono<ApiResponse<User>> getCurrentUser(@RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Fetching current user: {}", userId);
-        return userService.getUserById(userId)
-                .map(user -> ApiResponse.success(user, "User retrieved successfully"));
+    public Mono<ApiResponse<User>> getCurrentUser() {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching current user: {}", userId);
+            return userService.getUserById(userId);
+        }).map(user -> ApiResponse.success(user, "User retrieved successfully"));
     }
 
     @GetMapping("/{id}")
@@ -41,10 +40,7 @@ public class UserController {
     @GetMapping
     public Mono<ApiResponse<Flux<User>>> getAllUsers() {
         log.info("Fetching all users");
-        return Mono.just(ApiResponse.success(
-                userService.getAllUsers(),
-                "Users retrieved successfully"
-        ));
+        return Mono.just(ApiResponse.success(userService.getAllUsers(), "Users retrieved successfully"));
     }
 
     @GetMapping("/username/{username}")
@@ -69,10 +65,9 @@ public class UserController {
                 .then(Mono.just(ApiResponse.<Void>success(null, "User deleted successfully")));
     }
 
-    private UUID extractUserIdFromToken(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-        return tokenProvider.extractUserId(token);
+    private Mono<UUID> getCurrentUserId() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(ctx -> (JwtAuthenticationToken) ctx.getAuthentication())
+                .map(JwtAuthenticationToken::getUserId);
     }
 }

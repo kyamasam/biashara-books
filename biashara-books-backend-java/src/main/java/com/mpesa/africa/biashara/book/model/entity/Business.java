@@ -22,6 +22,8 @@ public class Business {
     private UUID id;
     private String name;
     private UUID userId;
+    private String shortCode;
+    private String shortCodeType;
 
     @CreatedDate
     private LocalDateTime createdAt;

@@ -1,6 +1,6 @@
 package com.mpesa.africa.biashara.book.controller;
 
-import com.mpesa.africa.biashara.book.config.JwtTokenProvider;
+import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
 import com.mpesa.africa.biashara.book.model.dto.request.TransactionRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
 import com.mpesa.africa.biashara.book.model.entity.Transaction;
@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -23,78 +24,65 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
-    private final JwtTokenProvider tokenProvider;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<ApiResponse<Transaction>> createTransaction(
-            @Valid @RequestBody TransactionRequest request,
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Creating transaction for user: {}", userId);
-        return transactionService.createTransaction(request, userId)
-                .map(transaction -> ApiResponse.success(transaction, "Transaction created successfully"));
+    public Mono<ApiResponse<Transaction>> createTransaction(@Valid @RequestBody TransactionRequest request) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Creating transaction for user: {}", userId);
+            return transactionService.createTransaction(request, userId);
+        }).map(transaction -> ApiResponse.success(transaction, "Transaction created successfully"));
     }
 
     @GetMapping("/{id}")
-    public Mono<ApiResponse<Transaction>> getTransactionById(
-            @PathVariable UUID id,
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Fetching transaction: {} for user: {}", id, userId);
-        return transactionService.getTransactionById(id, userId)
-                .map(transaction -> ApiResponse.success(transaction, "Transaction retrieved successfully"));
+    public Mono<ApiResponse<Transaction>> getTransactionById(@PathVariable UUID id) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching transaction: {} for user: {}", id, userId);
+            return transactionService.getTransactionById(id, userId);
+        }).map(transaction -> ApiResponse.success(transaction, "Transaction retrieved successfully"));
     }
 
     @GetMapping
-    public Mono<ApiResponse<List<Transaction>>> getAllTransactions(
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Fetching all transactions for user: {}", userId);
-        return transactionService.getAllTransactions(userId)
-                .collectList()
-                .map(transactions -> ApiResponse.success(transactions, "Transactions retrieved successfully"));
+    public Mono<ApiResponse<List<Transaction>>> getAllTransactions() {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching all transactions for user: {}", userId);
+            return transactionService.getAllTransactions(userId).collectList();
+        }).map(transactions -> ApiResponse.success(transactions, "Transactions retrieved successfully"));
     }
 
     @GetMapping("/recent")
-    public Mono<ApiResponse<List<Transaction>>> getRecentTransactions(
-            @RequestParam(defaultValue = "10") int limit,
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Fetching recent transactions for user: {}", userId);
-        return transactionService.getRecentTransactions(userId, limit)
-                .collectList()
-                .map(transactions -> ApiResponse.success(transactions, "Recent transactions retrieved successfully"));
+    public Mono<ApiResponse<List<Transaction>>> getRecentTransactions(@RequestParam(defaultValue = "10") int limit) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching recent transactions for user: {}", userId);
+            return transactionService.getRecentTransactions(userId, limit).collectList();
+        }).map(transactions -> ApiResponse.success(transactions, "Recent transactions retrieved successfully"));
     }
 
     @PatchMapping("/{id}/status")
     public Mono<ApiResponse<Transaction>> updateTransactionStatus(
             @PathVariable UUID id,
             @RequestParam TransactionStatus status,
-            @RequestParam(required = false) String details,
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Updating transaction status: {} for user: {}", id, userId);
-        return transactionService.updateTransactionStatus(id, status, details, userId)
-                .map(transaction -> ApiResponse.success(transaction, "Transaction status updated successfully"));
+            @RequestParam(required = false) String details) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Updating transaction status: {} for user: {}", id, userId);
+            return transactionService.updateTransactionStatus(id, status, details, userId);
+        }).map(transaction -> ApiResponse.success(transaction, "Transaction status updated successfully"));
     }
 
     @PatchMapping("/{id}/callback")
     public Mono<ApiResponse<Transaction>> updateTransactionCallback(
             @PathVariable UUID id,
             @RequestParam String reconciliationId,
-            @RequestBody Object callbackResp,
-            @RequestHeader("Authorization") String token) {
-        UUID userId = extractUserIdFromToken(token);
-        log.info("Updating transaction callback: {} for user: {}", id, userId);
-        return transactionService.updateTransactionCallback(id, reconciliationId, callbackResp, userId)
-                .map(transaction -> ApiResponse.success(transaction, "Transaction callback updated successfully"));
+            @RequestBody Object callbackResp) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Updating transaction callback: {} for user: {}", id, userId);
+            return transactionService.updateTransactionCallback(id, reconciliationId, callbackResp, userId);
+        }).map(transaction -> ApiResponse.success(transaction, "Transaction callback updated successfully"));
     }
 
-    private UUID extractUserIdFromToken(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-        }
-        return tokenProvider.extractUserId(token);
+    private Mono<UUID> getCurrentUserId() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(ctx -> (JwtAuthenticationToken) ctx.getAuthentication())
+                .map(JwtAuthenticationToken::getUserId);
     }
 }

@@ -25,6 +25,8 @@ public class BusinessService {
         Business business = Business.builder()
                 .name(request.getName())
                 .userId(userId)
+                .shortCode(request.getShortCode())
+                .shortCodeType(request.getShortCodeType())
                 .build();
 
         return businessRepository.save(business);
@@ -46,6 +48,8 @@ public class BusinessService {
                 .switchIfEmpty(Mono.error(new CustomException("Business not found or access denied")))
                 .flatMap(existingBusiness -> {
                     existingBusiness.setName(request.getName());
+                    existingBusiness.setShortCode(request.getShortCode());
+                    existingBusiness.setShortCodeType(request.getShortCodeType());
                     return businessRepository.save(existingBusiness);
                 });
     }

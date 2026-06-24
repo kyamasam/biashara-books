@@ -15,11 +15,22 @@ interface AuthUser {
   user_type: string;
 }
 
-interface TokenResponse {
-  data: {
-    user: AuthUser;
-    tokens: { access: string; refresh: string };
-  };
+interface PinLoginData {
+  token: string;
+  userId: string;
+  username: string;
+  email: string | null;
+  phoneCode: string | null;
+  phoneNumber: string;
+  message: string | null;
+}
+
+interface PinLoginResponse {
+  success: boolean;
+  message: string;
+  data: PinLoginData;
+  timestamp: string;
+  path: string | null;
 }
 
 interface PasswordTokenResponse {
@@ -57,9 +68,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const storeTokens = useCallback(async (access: string, refresh: string) => {
+  const storeTokens = useCallback(async (access: string, refresh?: string) => {
     await setStoredToken(ACCESS_TOKEN_KEY, access);
-    await setStoredToken(REFRESH_TOKEN_KEY, refresh);
+    if (refresh) {
+      await setStoredToken(REFRESH_TOKEN_KEY, refresh);
+    }
     setAccessToken(access);
   }, []);
 
@@ -76,12 +89,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithPin = useCallback(
     async (phoneNumber: string, pin: string) => {
-      const response = await post<TokenResponse>('api/users/login-with-pin/', {
-        phone_number: phoneNumber,
+      const response = await post<PinLoginResponse>('/api/auth/login/pin', {
+        phoneNumber,
         pin,
       });
-      setUser(response.data.user);
-      await storeTokens(response.data.tokens.access, response.data.tokens.refresh);
+      setUser({
+        id: response.data.userId,
+        phone_number: response.data.phoneNumber,
+        first_name: response.data.username,
+        last_name: null,
+        email: response.data.email,
+        user_type: 'user',
+      });
+      await storeTokens(response.data.token);
     },
     [storeTokens],
   );

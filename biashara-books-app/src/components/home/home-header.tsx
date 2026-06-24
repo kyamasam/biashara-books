@@ -1,11 +1,32 @@
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/home/avatar';
 import { IconButton } from '@/components/home/icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 
 export function HomeHeader() {
+  const { logout } = useAuth();
+
+  function handleLogout() {
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await logout();
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unable to log out.';
+            Alert.alert('Logout failed', message);
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <View style={styles.header}>
       <View style={styles.profile}>
@@ -21,6 +42,7 @@ export function HomeHeader() {
       <View style={styles.headerActions}>
         <IconButton name="qr" accessibilityLabel="Scan QR code" />
         <IconButton name="notifications" accessibilityLabel="Notifications" badge />
+        <IconButton name="logout" accessibilityLabel="Log out" onPress={handleLogout} />
       </View>
     </View>
   );

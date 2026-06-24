@@ -25,4 +25,10 @@ public interface UserRepository extends ReactiveCrudRepository<User, UUID> {
 
     @Query("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)")
     Mono<Boolean> existsByEmail(String email);
+
+    @Query("SELECT * FROM users WHERE phone_number = $1")
+    Mono<User> findByPhoneNumber(String phoneNumber);
+
+    @Query("SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1)")
+    Mono<Boolean> existsByPhoneNumber(String phoneNumber);
 }

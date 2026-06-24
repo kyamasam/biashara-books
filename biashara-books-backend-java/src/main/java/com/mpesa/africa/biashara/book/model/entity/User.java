@@ -23,6 +23,9 @@ public class User {
     private String username;
     private String email;
     private String passwordHash;
+    private String phoneCode;
+    private String phoneNumber;
+    private String pinHash;
 
     @CreatedDate
     private LocalDateTime createdAt;
