@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +14,7 @@ function formatKes(amount: number | undefined): string {
 }
 
 export function BalanceSummary() {
+  const router = useRouter();
   const { accessToken } = useAuth();
   const { showError, showSuccess } = useToast();
   const user = useUserStore((s) => s.user);
@@ -63,12 +65,16 @@ export function BalanceSummary() {
         <ThemedText themeColor="textSecondary" style={styles.loanLimitText}>
           Loan Limit {formatKes(business?.shortcodeLoanLimit)}
         </ThemedText>
-        <View style={styles.applyAction}>
-          <ThemedText type="linkPrimary" style={styles.applyLink}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Apply for loan"
+          onPress={() => router.push('/loan/apply')}
+          style={({ pressed }) => [styles.applyAction, pressed && styles.applyActionPressed]}>
+          <ThemedText type="linkPrimary" numberOfLines={1} style={styles.applyLink}>
             Apply
           </ThemedText>
           <AppIcon name="apply" size={11} color="#007aff" strokeWidth={2.2} />
-        </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -120,13 +126,19 @@ const styles = StyleSheet.create({
     fontWeight: 400,
   },
   applyLink: {
+    flexShrink: 0,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: 500,
   },
   applyAction: {
+    minHeight: 18,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
+  },
+  applyActionPressed: {
+    opacity: 0.65,
   },
 });

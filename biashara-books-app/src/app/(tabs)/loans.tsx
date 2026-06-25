@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { authGet } from '@/lib/api';
+import { useBusinessScoreStore } from '@/store/business-score-store';
 import { useUserStore } from '@/store/user-store';
 import { formatEndDate, formatKes, type SystemLoan, type SystemLoansResponse } from '@/types/loan';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,6 +20,12 @@ const GREEN_BRIGHT = '#33c976';
 const ORANGE = '#ff7a1a';
 const TEXT_MUTED = '#62676f';
 
+const formatBusinessScore = (score: number) =>
+  score.toLocaleString('en-KE', {
+    minimumFractionDigits: score % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+
 export default function LoansScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
@@ -26,7 +33,12 @@ export default function LoansScreen() {
   const { accessToken } = useAuth();
 
   const user = useUserStore((s) => s.user);
-  const loanLimit = user?.currentBusiness?.shortcodeLoanLimit ?? 0;
+  const {
+    score: businessScore,
+    isLoading: scoreLoading,
+    fetchScore,
+  } = useBusinessScoreStore();
+  const loanLimit = businessScore?.loanLimit ?? user?.currentBusiness?.shortcodeLoanLimit ?? 0;
 
   const [loans, setLoans] = useState<SystemLoan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,18 +66,26 @@ export default function LoansScreen() {
     }
   }, [accessToken]);
 
+  const loadBusinessScore = useCallback(() => {
+    if (!accessToken) return;
+
+    return fetchScore(accessToken, 1);
+  }, [accessToken, fetchScore]);
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       void loadLoans();
+      void loadBusinessScore();
     }, 0);
 
     return () => clearTimeout(timeout);
-  }, [loadLoans]);
+  }, [loadBusinessScore, loadLoans]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     void loadLoans(false);
-  }, [loadLoans]);
+    void loadBusinessScore();
+  }, [loadBusinessScore, loadLoans]);
 
   const totalBalance = loans.reduce((sum, l) => sum + l.loanBalance, 0);
   const nextDue = loans.length
@@ -116,7 +136,9 @@ export default function LoansScreen() {
           <View style={styles.scoreCard}>
             <ThemedText style={styles.scoreLabel}>Business Score</ThemedText>
             <View style={styles.scoreValueRow}>
-              <ThemedText style={styles.scoreValue}>125</ThemedText>
+              <ThemedText style={styles.scoreValue}>
+                {scoreLoading && !businessScore ? '...' : businessScore ? formatBusinessScore(businessScore.score) : '—'}
+              </ThemedText>
               <ThemedText style={styles.scoreTotal}>/800</ThemedText>
             </View>
           </View>

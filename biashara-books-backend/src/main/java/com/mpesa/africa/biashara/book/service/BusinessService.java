@@ -67,12 +67,14 @@ public class BusinessService {
                     return getBusinessById(user.getCurrentBusinessId(), userId);
                 })
                 .flatMap(business -> {
-                    String accountId = resolveFastDukaAccountId(business);
                     WebClient.RequestHeadersSpec<?> request = fastDukaWebClient.get()
-                            .uri("/api/account_balance/{accountId}/", accountId);
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/api/account_balance/by_short_code/")
+                                    .queryParam("short_code", business.getShortCode())
+                                    .build());
 
                     if (business.getFastdukaApiKey() != null && !business.getFastdukaApiKey().isBlank()) {
-                        request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + business.getFastdukaApiKey());
+                        request = request.header(HttpHeaders.AUTHORIZATION, "Api-Key " + business.getFastdukaApiKey());
                     }
 
                     return request.retrieve()
@@ -84,7 +86,7 @@ public class BusinessService {
                             .bodyToMono(FastDukaAccountBalanceResponse.class)
                             .flatMap(balanceResponse -> {
                                 if (balanceResponse.getAccountBalance() == null) {
-                                    log.info("FastDuka returned no account balance for account: {}", accountId);
+                                    log.info("FastDuka returned no account balance for short_code: {}", business.getShortCode());
                                     return Mono.just(business);
                                 }
                                 business.setShortcodeBalance(balanceResponse.getAccountBalance());
@@ -119,12 +121,5 @@ public class BusinessService {
 
     private BigDecimal defaultAmount(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
-    }
-
-    private String resolveFastDukaAccountId(Business business) {
-        if (business.getFastdukaConfigId() != null && !business.getFastdukaConfigId().isBlank()) {
-            return business.getFastdukaConfigId();
-        }
-        return "1";
     }
 }

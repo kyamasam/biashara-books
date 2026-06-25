@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { AlertCircle, ArrowUpRight, CheckCircle2 } from 'lucide-react-native';
+import { AlertCircle, ArrowUpRight, Check, CheckCircle2, ChevronDown } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,13 @@ const GREEN_DARK = '#087747';
 const GREEN_BRIGHT = '#33c976';
 const TEXT_MUTED = '#62676f';
 const REPAYMENT_PERIODS = [3, 6, 9, 12];
+const LOAN_PURPOSES = [
+  'Stock purchase',
+  'Business expansion',
+  'Equipment purchase',
+  'Pay suppliers',
+  'Emergency cash flow',
+];
 
 type LoanOffer = {
   id: string;
@@ -77,6 +84,9 @@ export default function LoanApplyScreen() {
   const [selectedOfferId, setSelectedOfferId] = useState(LOAN_OFFERS[0].id);
   const [selectedPeriod, setSelectedPeriod] = useState(REPAYMENT_PERIODS[1]);
   const [loanAmount, setLoanAmount] = useState('');
+  const [loanPurpose, setLoanPurpose] = useState('');
+  const [purposeOpen, setPurposeOpen] = useState(false);
+  const [hasConsented, setHasConsented] = useState(false);
   const [submittedKey, setSubmittedKey] = useState<string | null>(null);
 
   const selectedOffer = LOAN_OFFERS.find((offer) => offer.id === selectedOfferId) ?? LOAN_OFFERS[0];
@@ -86,8 +96,8 @@ export default function LoanApplyScreen() {
     () => estimateMonthlyRepayment(loanAmountValue, selectedOffer.interestRate, selectedPeriod),
     [loanAmountValue, selectedOffer.interestRate, selectedPeriod],
   );
-  const applicationReady = loanAmountValue > 0 && loanAmountValue <= maxLoanAmount;
-  const applicationKey = `${selectedOfferId}:${loanAmount}:${selectedPeriod}`;
+  const applicationReady = loanAmountValue > 0 && loanAmountValue <= maxLoanAmount && Boolean(loanPurpose) && hasConsented;
+  const applicationKey = `${selectedOfferId}:${loanAmount}:${selectedPeriod}:${loanPurpose}:${hasConsented}`;
   const submitted = submittedKey === applicationKey;
 
   return (
@@ -136,6 +146,44 @@ export default function LoanApplyScreen() {
                 }}
               />
             ))}
+          </View>
+
+          <View style={styles.applicationField}>
+            <ThemedText style={styles.fieldLabel}>Loan purpose</ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: purposeOpen }}
+              accessibilityLabel="Select loan purpose"
+              onPress={() => setPurposeOpen((isOpen) => !isOpen)}
+              style={[styles.dropdownButton, purposeOpen && styles.dropdownButtonOpen]}>
+              <ThemedText style={[styles.dropdownValue, !loanPurpose && styles.dropdownPlaceholder]}>
+                {loanPurpose || 'Select purpose'}
+              </ThemedText>
+              <ChevronDown size={18} color="#111111" strokeWidth={2.5} />
+            </Pressable>
+            {purposeOpen ? (
+              <View style={styles.dropdownMenu}>
+                {LOAN_PURPOSES.map((purpose) => {
+                  const selected = loanPurpose === purpose;
+                  return (
+                    <Pressable
+                      key={purpose}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        setLoanPurpose(purpose);
+                        setPurposeOpen(false);
+                      }}
+                      style={[styles.dropdownOption, selected && styles.dropdownOptionSelected]}>
+                      <ThemedText style={[styles.dropdownOptionText, selected && styles.dropdownOptionTextSelected]}>
+                        {purpose}
+                      </ThemedText>
+                      {selected ? <Check size={16} color={GREEN_DARK} strokeWidth={2.6} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.applicationField}>
@@ -194,6 +242,24 @@ export default function LoanApplyScreen() {
               <ThemedText style={styles.summaryValueSmall}>{selectedOffer.name}</ThemedText>
             </View>
           </View>
+
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: hasConsented }}
+            accessibilityLabel="Consent for bank to access business history and loan score"
+            onPress={() => setHasConsented((checked) => !checked)}
+            style={[styles.consentBox, hasConsented && styles.consentBoxChecked]}>
+            <View style={[styles.checkbox, hasConsented && styles.checkboxChecked]}>
+              {hasConsented ? <Check size={14} color="#ffffff" strokeWidth={2.8} /> : null}
+            </View>
+            <View style={styles.consentTextWrap}>
+              <ThemedText style={styles.consentTitle}>Consent to share business history</ThemedText>
+              <ThemedText style={styles.consentText}>
+                I allow {selectedOffer.name} to access my Biashara Books sales history, repayment history, and loan score
+                for this application.
+              </ThemedText>
+            </View>
+          </Pressable>
 
           <Pressable
             accessibilityRole="button"
@@ -461,6 +527,63 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: TEXT_MUTED,
   },
+  dropdownButton: {
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e3e7e4',
+    backgroundColor: '#fbfcfb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  dropdownButtonOpen: {
+    borderColor: GREEN_BRIGHT,
+    backgroundColor: '#f2fff7',
+  },
+  dropdownValue: {
+    minWidth: 0,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  dropdownPlaceholder: {
+    color: '#9ca3af',
+  },
+  dropdownMenu: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e3e7e4',
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+  },
+  dropdownOption: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#edf0ee',
+  },
+  dropdownOptionSelected: {
+    backgroundColor: '#f2fff7',
+  },
+  dropdownOptionText: {
+    minWidth: 0,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: TEXT_MUTED,
+  },
+  dropdownOptionTextSelected: {
+    color: GREEN_DARK,
+  },
   amountInputWrap: {
     height: 50,
     borderRadius: 14,
@@ -560,6 +683,50 @@ const styles = StyleSheet.create({
     width: 1,
     height: 34,
     backgroundColor: '#e0e5e2',
+  },
+  consentBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e3e7e4',
+    backgroundColor: '#fbfcfb',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    padding: Spacing.three,
+  },
+  consentBoxChecked: {
+    borderColor: GREEN_BRIGHT,
+    backgroundColor: '#f2fff7',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#cfd6d1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    borderColor: GREEN_DARK,
+    backgroundColor: GREEN_DARK,
+  },
+  consentTextWrap: {
+    minWidth: 0,
+    flex: 1,
+    gap: 3,
+  },
+  consentTitle: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  consentText: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: TEXT_MUTED,
   },
   submitApplicationButton: {
     height: 46,
