@@ -81,6 +81,7 @@ public class LoanService {
                     SystemLoan loan = SystemLoan.builder()
                             .institutionName(request.getInstitutionName())
                             .institutionType(request.getInstitutionType())
+                            .institutionLogoUrl(request.getInstitutionLogoUrl())
                             .loanBalance(request.getLoanBalance())
                             .monthlyRepaymentAmount(request.getMonthlyRepaymentAmount())
                             .endDate(request.getEndDate())
@@ -112,6 +113,7 @@ public class LoanService {
                         .flatMap(existingLoan -> {
                             existingLoan.setInstitutionName(request.getInstitutionName());
                             existingLoan.setInstitutionType(request.getInstitutionType());
+                            existingLoan.setInstitutionLogoUrl(request.getInstitutionLogoUrl());
                             existingLoan.setLoanBalance(request.getLoanBalance());
                             existingLoan.setMonthlyRepaymentAmount(request.getMonthlyRepaymentAmount());
                             existingLoan.setEndDate(request.getEndDate());

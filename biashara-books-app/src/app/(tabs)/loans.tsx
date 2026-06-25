@@ -1,12 +1,16 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { AlertTriangle, ArrowUpRight, Bell, CalendarClock, CheckCircle2, QrCode, TrendingUp, XCircle } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ArrowUpRight, Bell, CalendarClock, CheckCircle2, QrCode, TrendingUp } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { formatKes, LOANS, type Loan } from '@/data/loans';
+import { useAuth } from '@/context/auth-context';
+import { authGet } from '@/lib/api';
+import { useUserStore } from '@/store/user-store';
+import { formatEndDate, formatKes, type SystemLoan, type SystemLoansResponse } from '@/types/loan';
 import { useTheme } from '@/hooks/use-theme';
 
 const GREEN = '#0a8f55';
@@ -15,27 +19,37 @@ const GREEN_BRIGHT = '#33c976';
 const ORANGE = '#ff7a1a';
 const TEXT_MUTED = '#62676f';
 
-const STATUS_CONFIG = {
-  'On Track': {
-    icon: CheckCircle2,
-    color: GREEN_DARK,
-    bg: '#eefaf3',
-  },
-  'Poor Perfoming': {
-    icon: AlertTriangle,
-    color: '#b45309',
-    bg: '#fff7ed',
-  },
-  Defaulted: {
-    icon: XCircle,
-    color: '#b91c1c',
-    bg: '#fef2f2',
-  },
-} as const;
-
 export default function LoansScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
+  const { accessToken } = useAuth();
+
+  const user = useUserStore((s) => s.user);
+  const loanLimit = user?.currentBusiness?.shortcodeLoanLimit ?? 0;
+
+  const [loans, setLoans] = useState<SystemLoan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    setLoading(true);
+    authGet<SystemLoansResponse>('/api/loans/system', accessToken)
+      .then((res) => setLoans(res.data))
+      .catch((err) => setError(err?.message ?? 'Failed to load loans'))
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const totalBalance = loans.reduce((sum, l) => sum + l.loanBalance, 0);
+  const nextDue = loans.length
+    ? loans
+        .map((l) => l.endDate)
+        .sort()[0]
+        .slice(0, 7)
+    : null;
+  const nextDueLabel = nextDue
+    ? new Date(nextDue).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })
+    : '—';
 
   return (
     <ScrollView
@@ -52,7 +66,7 @@ export default function LoansScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={styles.page}>
         <LoansHeader />
-        <LoanLimitCard />
+        <LoanLimitCard loanLimit={loanLimit} />
 
         <View style={styles.scoreRow}>
           <Pressable
@@ -73,20 +87,35 @@ export default function LoansScreen() {
         </View>
 
         <View style={styles.insightsRow}>
-          <InsightPill icon={TrendingUp} label="Total loans" value="KES 6M" tone="#e9f8ef" />
-          <InsightPill icon={CalendarClock} label="Next due" value="Apr 28" tone="#fff3e7" />
+          <InsightPill
+            icon={TrendingUp}
+            label="Total loans"
+            value={totalBalance > 0 ? formatKes(totalBalance) : '—'}
+            tone="#e9f8ef"
+          />
+          <InsightPill icon={CalendarClock} label="Next due" value={nextDueLabel} tone="#fff3e7" />
           <InsightPill icon={CheckCircle2} label="Health" value="Good" tone="#eef1ff" />
         </View>
 
         <View style={styles.loansSection}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>Your Loans</ThemedText>
-            <ThemedText style={styles.sectionMeta}>{LOANS.length} active</ThemedText>
+            <ThemedText style={styles.sectionMeta}>{loans.length} active</ThemedText>
           </View>
 
-          {LOANS.map((loan) => (
-            <LoanCard key={loan.provider} loan={loan} />
-          ))}
+          {loading ? (
+            <ActivityIndicator size="large" color={GREEN} style={styles.loader} />
+          ) : error ? (
+            <View style={styles.errorState}>
+              <ThemedText style={styles.errorText}>{error}</ThemedText>
+            </View>
+          ) : loans.length === 0 ? (
+            <View style={styles.emptyState}>
+              <ThemedText style={styles.emptyText}>No loans found.</ThemedText>
+            </View>
+          ) : (
+            loans.map((loan) => <LoanCard key={loan.id} loan={loan} />)
+          )}
         </View>
       </View>
     </ScrollView>
@@ -110,7 +139,9 @@ function LoansHeader() {
   );
 }
 
-function LoanLimitCard() {
+function LoanLimitCard({ loanLimit }: { loanLimit: number }) {
+  const [whole, decimal] = loanLimit.toLocaleString('en-KE', { minimumFractionDigits: 0 }).split('.');
+
   return (
     <View style={styles.limitCard}>
       <View style={[styles.limitBubble, styles.limitBubbleLarge]} />
@@ -120,76 +151,61 @@ function LoanLimitCard() {
       <ThemedText style={styles.limitLabel}>Loan Limit</ThemedText>
       <View style={styles.limitAmountRow}>
         <ThemedText style={styles.limitCurrency}>KES</ThemedText>
-        <ThemedText style={styles.limitAmount}>3,000,000</ThemedText>
+        <ThemedText style={styles.limitAmount}>{whole}</ThemedText>
       </View>
       <View style={styles.limitGrowthRow}>
         <TrendingUp size={13} color="rgba(255,255,255,0.88)" strokeWidth={2.2} />
-        <ThemedText style={styles.limitGrowth}>+4,000 Kes This Month</ThemedText>
+        <ThemedText style={styles.limitGrowth}>Based on your business activity</ThemedText>
       </View>
     </View>
   );
 }
 
-function LoanCard({ loan }: { loan: Loan }) {
-  const progress = Math.min(loan.paid / loan.total, 1);
+function LoanCard({ loan }: { loan: SystemLoan }) {
   const router = useRouter();
+  const channelLabel = loan.institutionType.charAt(0).toUpperCase() + loan.institutionType.slice(1);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${loan.provider} loan balance ${formatKes(loan.total - loan.paid)}`}
+      accessibilityLabel={`${loan.institutionName} loan balance ${formatKes(loan.loanBalance)}`}
       onPress={() => router.push({ pathname: '/loan/[id]', params: { id: loan.id } })}
       style={styles.loanCard}>
       <View style={styles.loanTopRow}>
         <View style={styles.loanIdentity}>
           <BankLogo loan={loan} />
-          <ThemedText style={styles.loanName}>{loan.provider}</ThemedText>
+          <ThemedText style={styles.loanName}>{loan.institutionName}</ThemedText>
         </View>
         <View style={styles.balanceColumn}>
-          <ThemedText style={styles.balanceValue}>{formatKes(loan.total - loan.paid)}</ThemedText>
+          <ThemedText style={styles.balanceValue}>{formatKes(loan.loanBalance)}</ThemedText>
           <ThemedText style={styles.balanceLabel}>balance</ThemedText>
         </View>
       </View>
 
       <View style={styles.loanMetaRow}>
         <ThemedText style={styles.loanMeta}>
-          {loan.channel} - KES {loan.monthlyPayment.toLocaleString('en-KE')}/mo
+          {channelLabel} · KES {loan.monthlyRepaymentAmount.toLocaleString('en-KE')}/mo
         </ThemedText>
-        <ThemedText style={styles.loanDue}>Due {loan.due}</ThemedText>
+        <ThemedText style={styles.loanDue}>Ends {formatEndDate(loan.endDate)}</ThemedText>
       </View>
 
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      <View style={styles.statusChip}>
+        <CheckCircle2 size={12} color={GREEN_DARK} strokeWidth={2.4} />
+        <ThemedText style={[styles.statusText, { color: GREEN_DARK }]}>Active</ThemedText>
       </View>
-
-      <View style={styles.loanBottomRow}>
-        <ThemedText style={styles.loanFoot}>{formatKes(loan.paid)} Paid</ThemedText>
-        <ThemedText style={styles.loanFoot}>of {formatKes(loan.total)}</ThemedText>
-      </View>
-
-      {(() => {
-        const cfg = STATUS_CONFIG[loan.status];
-        const StatusIcon = cfg.icon;
-        return (
-          <View style={[styles.statusChip, { backgroundColor: cfg.bg }]}>
-            <StatusIcon size={12} color={cfg.color} strokeWidth={2.4} />
-            <ThemedText style={[styles.statusText, { color: cfg.color }]}>{loan.status}</ThemedText>
-          </View>
-        );
-      })()}
     </Pressable>
   );
 }
 
-function BankLogo({ loan }: { loan: Loan }) {
+function BankLogo({ loan }: { loan: SystemLoan }) {
   return (
     <View style={styles.bankLogoFrame}>
       <Image
-        source={loan.logo}
+        source={loan.institutionLogoUrl ? { uri: loan.institutionLogoUrl } : undefined}
         style={styles.bankLogo}
         contentFit="contain"
         transition={120}
-        accessibilityLabel={`${loan.provider} logo`}
+        accessibilityLabel={`${loan.institutionName} logo`}
       />
     </View>
   );
@@ -452,8 +468,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: TEXT_MUTED,
   },
+  loader: {
+    marginTop: Spacing.four,
+  },
+  errorState: {
+    alignItems: 'center',
+    paddingVertical: Spacing.four,
+  },
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: Spacing.four,
+  },
+  emptyText: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   loanCard: {
-    minHeight: 116,
+    minHeight: 96,
     borderRadius: 12,
     backgroundColor: '#ffffff',
     gap: 7,
@@ -536,35 +573,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: TEXT_MUTED,
   },
-  progressTrack: {
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: '#edf0ee',
-    overflow: 'hidden',
-    marginTop: 4,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: GREEN_BRIGHT,
-  },
-  loanBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-    marginTop: 4,
-  },
-  loanFoot: {
-    fontSize: 11,
-    lineHeight: 14,
-    color: TEXT_MUTED,
-  },
   statusChip: {
     alignSelf: 'flex-start',
-    marginTop: 5,
+    marginTop: 2,
     height: 22,
     borderRadius: 11,
+    backgroundColor: '#eefaf3',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -574,8 +588,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.72,
   },
 });

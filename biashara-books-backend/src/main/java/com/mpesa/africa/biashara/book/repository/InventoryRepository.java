@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Repository
@@ -23,4 +24,7 @@ public interface InventoryRepository extends ReactiveCrudRepository<Inventory, U
 
     @Query("SELECT SUM(quantity) FROM inventory WHERE product_id = $1")
     Mono<Double> sumQuantityByProductId(UUID productId);
+
+    @Query("SELECT MAX(unit_sale_price) FROM inventory WHERE product_id = $1")
+    Mono<BigDecimal> maxSalePriceByProductId(UUID productId);
 }

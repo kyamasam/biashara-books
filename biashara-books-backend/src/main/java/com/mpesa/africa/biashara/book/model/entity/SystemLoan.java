@@ -25,6 +25,7 @@ public class SystemLoan {
     private UUID id;
     private String institutionName;
     private InstitutionType institutionType;
+    private String institutionLogoUrl;
     private BigDecimal loanBalance;
     private BigDecimal monthlyRepaymentAmount;
     private LocalDate endDate;

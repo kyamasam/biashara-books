@@ -73,6 +73,10 @@ export default function BottomTabMenu() {
             </TabTrigger>
           ))}
           <TabTrigger name="expenses" href="/expenses" style={{ display: 'none' }} />
+          <TabTrigger name="checkout" href="/checkout" style={{ display: 'none' }} />
+          <TabTrigger name="payment" href="/payment" style={{ display: 'none' }} />
+          <TabTrigger name="mpesa-prompt" href="/mpesa-prompt" style={{ display: 'none' }} />
+          <TabTrigger name="payment-complete" href="/payment-complete" style={{ display: 'none' }} />
         </BottomMenuBar>
       </TabList>
     </Tabs>
