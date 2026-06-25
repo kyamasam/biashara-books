@@ -24,12 +24,7 @@ public class TransactionRequest {
 
     @NotNull(message = "Transaction type is required")
     @Schema(
-            description = """
-                    Direction of money movement.
-                    Options:
-                    - credit: Money received by the business.
-                    - debit: Money paid out by the business.
-                    """,
+            description = "Direction of money movement. Options: credit (Money received), debit (Money paid out)",
             example = "credit",
             allowableValues = {"credit", "debit"}
     )
@@ -37,15 +32,7 @@ public class TransactionRequest {
 
     @NotNull(message = "Transaction method is required")
     @Schema(
-            description = """
-                    Payment flow or settlement method used for the transaction.
-                    Options:
-                    - stk_push: Customer authorizes an M-PESA STK push prompt.
-                    - b2c: Business-to-customer M-PESA payment.
-                    - c2b: Customer-to-business M-PESA payment.
-                    - b2b: Business-to-business M-PESA payment.
-                    - cash: Cash payment handled outside M-PESA rails.
-                    """,
+            description = "Payment flow or settlement method used for the transaction.",
             example = "stk_push",
             allowableValues = {"stk_push", "b2c", "c2b", "b2b", "cash"}
     )
@@ -53,13 +40,7 @@ public class TransactionRequest {
 
     @NotNull(message = "Transaction purpose is required")
     @Schema(
-            description = """
-                    Business reason for the transaction.
-                    Options:
-                    - expense_payment: Payment for a business expense.
-                    - sale_payment: Payment received for a sale.
-                    - loan_payment: Payment related to a loan.
-                    """,
+            description = "Business reason for the transaction.",
             example = "expense_payment",
             allowableValues = {"expense_payment", "sale_payment", "loan_payment"}
     )
@@ -78,14 +59,7 @@ public class TransactionRequest {
 
     @NotNull(message = "Payment channel is required")
     @Schema(
-            description = """
-                    Account or channel where the payment is collected or sent.
-                    Options:
-                    - pochi: M-PESA Pochi la Biashara wallet.
-                    - paybill: M-PESA PayBill account.
-                    - till: M-PESA Buy Goods till.
-                    - bank_transfer: Bank account transfer.
-                    """,
+            description = "Account or channel where the payment is collected or sent.",
             example = "pochi",
             allowableValues = {"pochi", "paybill", "till", "bank_transfer"}
     )
@@ -111,4 +85,7 @@ public class TransactionRequest {
 
     @Schema(description = "Raw callback response metadata from the payment provider.")
     private Map<String, Object> callbackResp;
+
+    @Schema(description = "Idempotency key for payment (if retrying)", example = "550e8400-e29b-41d4-a716-446655440000")
+    private String idempotencyKey;
 }

@@ -2,6 +2,7 @@ package com.mpesa.africa.biashara.book.service;
 
 import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.response.UserResponse;
+import com.mpesa.africa.biashara.book.model.entity.Business;
 import com.mpesa.africa.biashara.book.model.entity.User;
 import com.mpesa.africa.biashara.book.repository.BusinessRepository;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
@@ -75,5 +76,26 @@ public class UserService {
                     user.setCurrentBusinessId(businessId);
                     return userRepository.save(user);
                 });
+    }
+
+    public Mono<UUID> getCurrentBusinessId(UUID userId) {
+        log.debug("Getting current business ID for user: {}", userId);
+
+        return userRepository.findById(userId)
+                .switchIfEmpty(Mono.error(new CustomException("User not found")))
+                .flatMap(user -> {
+                    // If user has a current business set, use it
+                    if (user.getCurrentBusinessId() != null) {
+                        return Mono.just(user.getCurrentBusinessId());
+                    }
+
+                    // Otherwise, get the first business they own
+                    return businessRepository.findByUserId(userId)
+                            .next()  // Get first business
+                            .map(Business::getId)
+                            .switchIfEmpty(Mono.error(new CustomException("No business found for user. Please create a business first.")));
+                })
+                .doOnSuccess(businessId -> log.debug("Current business ID: {}", businessId))
+                .doOnError(error -> log.error("Error getting current business ID: {}", error.getMessage()));
     }
 }

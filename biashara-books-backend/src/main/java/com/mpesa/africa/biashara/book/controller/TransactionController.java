@@ -1,42 +1,29 @@
 package com.mpesa.africa.biashara.book.controller;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
-
 import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
+import com.mpesa.africa.biashara.book.model.dto.payment.PaymentResponse;
 import com.mpesa.africa.biashara.book.model.dto.request.TransactionRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
 import com.mpesa.africa.biashara.book.model.dto.response.PageResponse;
 import com.mpesa.africa.biashara.book.model.entity.Transaction;
 import com.mpesa.africa.biashara.book.model.enums.TransactionStatus;
+import com.mpesa.africa.biashara.book.service.PaymentGatewayService;
 import com.mpesa.africa.biashara.book.service.TransactionService;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -49,56 +36,18 @@ import reactor.core.publisher.Mono;
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final PaymentGatewayService paymentGatewayService;
 
     @Operation(
             summary = "Create a transaction",
             description = """
                     Creates a transaction for the authenticated user.
-
+                    
                     New transactions are created with status `initiated`.
                     If `businessId` is omitted, the authenticated user's current business is used.
-
-                    Required fields:
-                    - transactionStatus: `success` , `failed` or `initiated`
-                    - transactionType: `credit` or `debit`
-                    - transactionMethod: `stk_push`, `b2c`, `c2b`, `b2b`, or `cash`
-                    - transactionPurpose: `expense_payment`, `sale_payment`, or `loan_payment`
-                    - transactionAmount: positive number greater than zero
-                    - paymentChannel: `pochi`, `paybill`, `till`, or `bank_transfer`
-                    """,
-            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Transaction request payload.",
-                    content = @Content(
-                            schema = @Schema(implementation = TransactionRequest.class),
-                            examples = @ExampleObject(
-                                    name = "Sale payment via STK push",
-                                    value = """
-                                            {
-                                              "businessId": "2e2fbf66-4f95-4596-ae58-24a8ce0fb79f",
-                                              "transactionType": "credit",
-                                              "transactionMethod": "stk_push",
-                                              "transactionPurpose": "sale_payment",
-                                              "transactionPurposeDetail": "Sale of grocery items",
-                                              "confirmationCode": "SFT7QWERTY",
-                                              "transactionAmount": 1500.00,
-                                              "paymentChannel": "till",
-                                              "receiverNumber": "254712345678",
-                                              "receiverName": "Biashara Shop",
-                                              "receiverAccount": "TILL-123456",
-                                              "senderNumber": "254798765432",
-                                              "senderName": "Kamau Mwangi",
-                                              "reconciliationId": "ws_CO_240620261230001234567890",
-                                              "callbackResp": {
-                                                "provider": "mpesa",
-                                                "resultCode": "0",
-                                                "resultDescription": "Success"
-                                              }
-                                            }
-                                            """
-                            )
-                    )
-            )
+                    
+                    For STK Push transactions, the payment will be initiated automatically.
+                    """
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Transaction created successfully"),
@@ -133,8 +82,8 @@ public class TransactionController {
     @Operation(
             summary = "Get paginated transactions",
             description = """
-                    Returns transactions for the authenticated user's current business.
-
+                    Returns transactions for the authenticated user.
+                    
                     Pagination:
                     - `page` is zero-based and defaults to `0`.
                     - `size` defaults to `20`.
@@ -143,69 +92,59 @@ public class TransactionController {
                     """
     )
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "Paginated transactions retrieved successfully",
-                    content = @Content(
-                            schema = @Schema(implementation = PageResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Paginated transactions",
-                                    value = """
-                                            {
-                                              "success": true,
-                                              "message": "Transactions retrieved successfully",
-                                              "data": {
-                                                "content": [
-                                                  {
-                                                    "id": "6b989f89-6f14-4f9d-a6c5-f29d14fb7d4c",
-                                                    "businessId": "2e2fbf66-4f95-4596-ae58-24a8ce0fb79f",
-                                                    "transactionType": "credit",
-                                                    "transactionMethod": "stk_push",
-                                                    "transactionPurpose": "sale_payment",
-                                                    "transactionAmount": 1500.00,
-                                                    "paymentChannel": "till",
-                                                    "transactionStatus": "initiated"
-                                                  }
-                                                ],
-                                                "page": 0,
-                                                "size": 20,
-                                                "totalElements": 1,
-                                                "totalPages": 1,
-                                                "first": true,
-                                                "last": true,
-                                                "empty": false
-                                              },
-                                              "timestamp": "2026-06-24T19:05:53"
-                                            }
-                                            """
-                            )
-                    )
-            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Paginated transactions retrieved successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Missing or invalid JWT token")
     })
     @GetMapping
     public Mono<ApiResponse<PageResponse<Transaction>>> getAllTransactions(
-            @Parameter(
-                    description = "Zero-based page number. Negative values are treated as `0`.",
-                    example = "0",
-                    schema = @Schema(type = "integer", defaultValue = "0", minimum = "0")
-            )
+            @Parameter(description = "Zero-based page number.", example = "0")
             @RequestParam(defaultValue = "0") int page,
-            @Parameter(
-                    description = "Number of transactions per page. Values below `1` become `1`; values above `100` become `100`.",
-                    example = "20",
-                    schema = @Schema(type = "integer", defaultValue = "20", minimum = "1", maximum = "100")
-            )
+            @Parameter(description = "Number of transactions per page.", example = "20")
             @RequestParam(defaultValue = "20") int size) {
+
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
+
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching transactions page: {} size: {} for user: {}", safePage, safeSize, userId);
             return transactionService.getTransactionsPage(userId, PageRequest.of(safePage, safeSize));
-        }).map(transactions -> ApiResponse.success(PageResponse.from(transactions), "Transactions retrieved successfully"));
+        }).map(transactions -> {
+            PageResponse<Transaction> pageResponse = PageResponse.from(transactions);
+            return ApiResponse.success(pageResponse, "Transactions retrieved successfully");
+        });
     }
 
-    @Operation(summary = "Get recent transactions", description = "Returns recent transactions for the authenticated user's current business. The `limit` query parameter defaults to `10`.")
+    @Operation(
+            summary = "Get paginated transactions by business",
+            description = "Returns transactions for a specific business. Uses the user's current business if not specified."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Paginated transactions retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Missing or invalid JWT token")
+    })
+    @GetMapping("/business")
+    public Mono<ApiResponse<PageResponse<Transaction>>> getTransactionsByBusiness(
+            @RequestParam(required = false) UUID businessId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching transactions for business: {} for user: {}", businessId, userId);
+
+            if (businessId != null) {
+                return transactionService.getTransactionsPageByBusiness(businessId, PageRequest.of(safePage, safeSize));
+            }
+            return transactionService.getTransactionsPageWithBusiness(userId, PageRequest.of(safePage, safeSize));
+        }).map(transactions -> {
+            PageResponse<Transaction> pageResponse = PageResponse.from(transactions);
+            return ApiResponse.success(pageResponse, "Transactions retrieved successfully");
+        });
+    }
+
+    @Operation(summary = "Get recent transactions", description = "Returns recent transactions for the authenticated user.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Recent transactions retrieved successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Missing or invalid JWT token")
@@ -218,6 +157,74 @@ public class TransactionController {
             log.info("Fetching recent transactions for user: {}", userId);
             return transactionService.getRecentTransactions(userId, limit).collectList();
         }).map(transactions -> ApiResponse.success(transactions, "Recent transactions retrieved successfully"));
+    }
+
+    @Operation(summary = "Get transactions by status", description = "Returns transactions filtered by status for the authenticated user.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Transactions retrieved successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Missing or invalid JWT token")
+    })
+    @GetMapping("/status/{status}")
+    public Mono<ApiResponse<List<Transaction>>> getTransactionsByStatus(
+            @Parameter(description = "Transaction status", example = "initiated")
+            @PathVariable TransactionStatus status) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Fetching transactions by status: {} for user: {}", status, userId);
+            return transactionService.getTransactionsByStatus(userId, status).collectList();
+        }).map(transactions -> ApiResponse.success(transactions, "Transactions retrieved successfully"));
+    }
+
+    @Operation(
+            summary = "Retry STK Push payment",
+            description = "Retries a failed or stuck STK Push payment with a new idempotency key"
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "STK Push retry initiated"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Transaction not found or cannot be retried"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Missing or invalid JWT token")
+    })
+    @PostMapping("/{id}/retry")
+    public Mono<ApiResponse<Transaction>> retryStkPush(
+            @Parameter(description = "Transaction ID")
+            @PathVariable UUID id) {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Retrying STK Push for transaction: {} for user: {}", id, userId);
+            return transactionService.retryStkPush(id, userId);
+        }).map(transaction -> ApiResponse.success(transaction, "STK Push retry initiated"));
+    }
+
+    @Operation(
+            summary = "Check payment status",
+            description = "Poll payment status using idempotency key"
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Payment status retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Payment not found")
+    })
+    @GetMapping("/status/{idempotencyKey}")
+    public Mono<ApiResponse<PaymentResponse>> checkPaymentStatus(
+            @Parameter(description = "Idempotency key from payment initiation")
+            @PathVariable String idempotencyKey) {
+        log.info("Checking payment status for idempotency key: {}", idempotencyKey);
+        return paymentGatewayService.pollPaymentStatus(idempotencyKey)
+                .map(response -> ApiResponse.success(response, "Payment status retrieved"));
+    }
+
+    @Operation(
+            summary = "Poll payment until final status",
+            description = "Polls payment status until it reaches a final state (success/failed) or max attempts are exhausted"
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Final payment status retrieved"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Payment not found")
+    })
+    @GetMapping("/status/{idempotencyKey}/poll")
+    public Mono<ApiResponse<PaymentResponse>> pollPaymentUntilFinal(
+            @Parameter(description = "Idempotency key from payment initiation")
+            @PathVariable String idempotencyKey) {
+        log.info("Polling payment for idempotency key: {}", idempotencyKey);
+        return paymentGatewayService.pollUntilFinalStatus(idempotencyKey)
+                .map(response -> ApiResponse.success(response, "Final payment status retrieved"));
     }
 
     @Operation(
@@ -247,7 +254,7 @@ public class TransactionController {
             summary = "Update transaction status",
             description = """
                     Updates the processing state for a transaction owned by the authenticated user.
-
+                    
                     Status options:
                     - `initiated`: Transaction has been created and is awaiting confirmation.
                     - `success`: Transaction completed successfully.
@@ -271,8 +278,7 @@ public class TransactionController {
                             - success: Transaction completed successfully.
                             - failed: Transaction did not complete successfully.
                             """,
-                    example = "success",
-                    schema = @Schema(allowableValues = {"initiated", "success", "failed"})
+                    example = "success"
             )
             @RequestParam TransactionStatus status,
             @Parameter(description = "Optional human-readable status note or provider failure reason.", example = "M-PESA callback confirmed payment")
@@ -298,24 +304,6 @@ public class TransactionController {
             @PathVariable UUID id,
             @Parameter(description = "External reconciliation or checkout request identifier used to match callbacks.", example = "ws_CO_240620261230001234567890")
             @RequestParam String reconciliationId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    required = true,
-                    description = "Raw callback response from the payment provider.",
-                    content = @Content(
-                            examples = @ExampleObject(
-                                    name = "M-PESA callback",
-                                    value = """
-                                            {
-                                              "provider": "mpesa",
-                                              "merchantRequestId": "29115-34620561-1",
-                                              "checkoutRequestId": "ws_CO_240620261230001234567890",
-                                              "resultCode": "0",
-                                              "resultDescription": "The service request is processed successfully."
-                                            }
-                                            """
-                            )
-                    )
-            )
             @RequestBody Object callbackResp) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Updating transaction callback: {} for user: {}", id, userId);
@@ -323,7 +311,7 @@ public class TransactionController {
         }).map(transaction -> ApiResponse.success(transaction, "Transaction callback updated successfully"));
     }
 
-    @Operation(summary = "Delete transaction", description = "Deletes a transaction if it belongs to the authenticated user's current business.")
+    @Operation(summary = "Delete transaction", description = "Deletes a transaction if it belongs to the authenticated user.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Transaction deleted successfully"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Transaction not found or access denied"),

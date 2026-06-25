@@ -23,24 +23,25 @@ import java.util.UUID;
 public class Transaction {
     @Id
     private UUID id;
-    private TransactionType transactionType;
-    private TransactionMethod transactionMethod;
-    private TransactionPurpose transactionPurpose;
+    private UUID businessId;
+    private UUID userId;
+    private String transactionType;
+    private String transactionMethod;
+    private String transactionPurpose;
     private String transactionPurposeDetail;
     private String confirmationCode;
+    private String transactionConfirmationNumber;
     private BigDecimal transactionAmount;
-    private PaymentChannel paymentChannel;
+    private String paymentChannel;
     private String receiverNumber;
     private String receiverName;
     private String receiverAccount;
-    private TransactionStatus transactionStatus;
-    private String transactionStatusDetails;
     private String senderNumber;
     private String senderName;
+    private String transactionStatus;
+    private String transactionStatusDetails;
     private String reconciliationId;
     private Map<String, Object> callbackResp;
-    private UUID userId;
-    private UUID businessId;
 
     @CreatedDate
     private LocalDateTime createdAt;
