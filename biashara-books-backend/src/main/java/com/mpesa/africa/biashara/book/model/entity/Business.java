@@ -28,6 +28,10 @@ public class Business {
     private BigDecimal shortcodeBalance;
     private BigDecimal shortcodeLoanLimit;
 
+    private String fastdukaApiKey;
+    private String fastdukaOrgId;
+    private String fastdukaConfigId;
+
     @CreatedDate
     private LocalDateTime createdAt;
 

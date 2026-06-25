@@ -1,14 +1,17 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarClock, CheckCircle2, CreditCardIcon, Hash } from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { CalendarClock, CheckCircle2, CreditCardIcon } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageHeader } from '@/components/page-header';
 import { ThemedText } from '@/components/themed-text';
 import { AppButton } from '@/components/ui/button';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { formatKes, getLoanById, type LoanPayment } from '@/data/loans';
+import { useAuth } from '@/context/auth-context';
+import { authGet } from '@/lib/api';
+import { formatEndDate, formatKes, type SystemLoan, type SystemLoanResponse } from '@/types/loan';
 import { useTheme } from '@/hooks/use-theme';
 
 const GREEN = '#0a8f55';
@@ -22,18 +25,40 @@ export default function LoanDetailScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
   const router = useRouter();
-  const loan = getLoanById(id);
+  const { accessToken } = useAuth();
 
-  const balance = loan ? loan.total - loan.paid : 0;
+  const [loan, setLoan] = useState<SystemLoan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!loan) {
+  useEffect(() => {
+    if (!accessToken || !id) return;
+    setLoading(true);
+    authGet<SystemLoanResponse>(`/api/loans/system/${id}`, accessToken)
+      .then((res) => setLoan(res.data))
+      .catch((err) => setError(err?.message ?? 'Failed to load loan'))
+      .finally(() => setLoading(false));
+  }, [accessToken, id]);
+
+  if (loading) {
     return (
-      <View style={[styles.emptyState, { backgroundColor: theme.background }]}>
-        <PageHeader title="Loan not found" showBack onBack={() => router.back()} />
-        <ThemedText style={styles.emptyText}>This loan could not be found.</ThemedText>
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <PageHeader title="Loan Details" showBack onBack={() => router.back()} />
+        <ActivityIndicator size="large" color={GREEN} />
       </View>
     );
   }
+
+  if (error || !loan) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <PageHeader title="Loan not found" showBack onBack={() => router.back()} />
+        <ThemedText style={styles.errorText}>{error ?? 'This loan could not be found.'}</ThemedText>
+      </View>
+    );
+  }
+
+  const channelLabel = loan.institutionType.charAt(0).toUpperCase() + loan.institutionType.slice(1);
 
   return (
     <ScrollView
@@ -55,51 +80,50 @@ export default function LoanDetailScreen() {
           <View style={styles.loanTitleRow}>
             <View style={styles.logoFrame}>
               <Image
-                source={loan.logo}
+                source={loan.institutionLogoUrl ? { uri: loan.institutionLogoUrl } : undefined}
                 style={styles.logo}
                 contentFit="contain"
-                accessibilityLabel={`${loan.provider} logo`}
+                accessibilityLabel={`${loan.institutionName} logo`}
               />
             </View>
             <View style={styles.titleCopy}>
-              <ThemedText style={styles.provider}>{loan.provider}</ThemedText>
-              <ThemedText style={styles.account}>{loan.account}</ThemedText>
+              <ThemedText style={styles.provider}>{loan.institutionName}</ThemedText>
+              <ThemedText style={styles.account}>{channelLabel}</ThemedText>
             </View>
             <View style={styles.statusChip}>
               <CheckCircle2 size={12} color={GREEN} strokeWidth={2.4} />
-              <ThemedText style={styles.statusText}>{loan.status}</ThemedText>
+              <ThemedText style={styles.statusText}>Active</ThemedText>
             </View>
           </View>
 
           <View style={styles.balanceBlock}>
             <ThemedText style={styles.balanceLabel}>Outstanding balance</ThemedText>
-            <ThemedText style={styles.balanceValue}>{formatKes(balance)}</ThemedText>
+            <ThemedText style={styles.balanceValue}>{formatKes(loan.loanBalance)}</ThemedText>
           </View>
 
           <View style={styles.summaryGrid}>
-            <SummaryCell label="Monthly pay" value={formatKes(loan.monthlyPayment)} />
-            <SummaryCell label="Due date" value={loan.due} />
-            <SummaryCell label="Rate" value={loan.rate} />
+            <SummaryCell label="Monthly pay" value={formatKes(loan.monthlyRepaymentAmount)} />
+            <SummaryCell label="End date" value={formatEndDate(loan.endDate)} />
+            <SummaryCell label="Type" value={channelLabel} />
           </View>
         </View>
 
         <View style={styles.payCard}>
           <View style={styles.cardHeader}>
-            <ThemedText style={styles.cardTitle}>Pay loan</ThemedText>
-            <ThemedText style={styles.historyMeta}>Paybill source</ThemedText>
+            <ThemedText style={styles.cardTitle}>Record payment</ThemedText>
           </View>
 
           <View style={styles.paymentMethod}>
             <View style={styles.methodIcon}>
-              <Hash size={18} color={GREEN_DARK} strokeWidth={2.3} />
+              <CalendarClock size={18} color={GREEN_DARK} strokeWidth={2.3} />
             </View>
             <View style={styles.methodCopy}>
-              <ThemedText style={styles.methodTitle}>Paybill {loan.paybill.number}</ThemedText>
-              <ThemedText style={styles.methodMeta}>Account {loan.paybill.account}</ThemedText>
+              <ThemedText style={styles.methodTitle}>Monthly repayment</ThemedText>
+              <ThemedText style={styles.methodMeta}>{formatKes(loan.monthlyRepaymentAmount)} due monthly</ThemedText>
             </View>
           </View>
           <AppButton
-            label="Pay loan"
+            label="Record payment"
             icon={CreditCardIcon}
             color={GREEN_BRIGHT}
             fullWidth
@@ -109,14 +133,10 @@ export default function LoanDetailScreen() {
 
         <View style={styles.historySection}>
           <View style={styles.cardHeader}>
-            <ThemedText style={styles.cardTitle}>Previous payments</ThemedText>
-            <ThemedText style={styles.historyMeta}>{loan.payments.length} records</ThemedText>
+            <ThemedText style={styles.cardTitle}>Payment history</ThemedText>
           </View>
-
-          <View style={styles.paymentList}>
-            {loan.payments.map((payment) => (
-              <PaymentRow key={payment.id} payment={payment} />
-            ))}
+          <View style={styles.emptyHistory}>
+            <ThemedText style={styles.emptyHistoryText}>No payment records yet.</ThemedText>
           </View>
         </View>
       </View>
@@ -133,26 +153,6 @@ function SummaryCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PaymentRow({ payment }: { payment: LoanPayment }) {
-  return (
-    <View style={styles.paymentRow}>
-      <View style={styles.paymentDateIcon}>
-        <CalendarClock size={16} color={GREEN_DARK} strokeWidth={2.3} />
-      </View>
-      <View style={styles.paymentInfo}>
-        <ThemedText style={styles.paymentAmount}>{formatKes(payment.amount)}</ThemedText>
-        <ThemedText style={styles.paymentMeta}>
-          {payment.date} - {payment.method}
-        </ThemedText>
-      </View>
-      <View style={styles.paymentRight}>
-        <ThemedText style={styles.paymentStatus}>{payment.status}</ThemedText>
-        <ThemedText style={styles.paymentRef}>{payment.reference}</ThemedText>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
@@ -165,13 +165,15 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     gap: Spacing.three,
   },
-  emptyState: {
+  centered: {
     flex: 1,
     padding: Spacing.three,
     gap: Spacing.three,
   },
-  emptyText: {
-    color: TEXT_MUTED,
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 14,
+    lineHeight: 20,
   },
   heroCard: {
     borderRadius: 14,
@@ -269,29 +271,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
   },
-  confirmationBanner: {
-    borderRadius: 12,
-    backgroundColor: '#eefaf3',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    padding: Spacing.three,
-  },
-  confirmationCopy: {
-    minWidth: 0,
-    flex: 1,
-  },
-  confirmationTitle: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: GREEN_DARK,
-  },
-  confirmationText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: GREEN_DARK,
-  },
   payCard: {
     borderRadius: 14,
     backgroundColor: SURFACE,
@@ -309,72 +288,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 21,
     fontWeight: '700',
-  },
-  secureBadge: {
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#eefaf3',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-  },
-  secureText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
-    color: GREEN_DARK,
-  },
-  inputLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: TEXT_MUTED,
-  },
-  amountInputRow: {
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e6e3',
-    backgroundColor: '#fbfcfb',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two,
-  },
-  currencyPrefix: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: TEXT_MUTED,
-  },
-  amountInput: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 0,
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  quickAmounts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  amountChip: {
-    minHeight: 32,
-    borderRadius: 16,
-    backgroundColor: '#f2f6f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  amountChipText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: GREEN_DARK,
   },
   paymentMethod: {
     minHeight: 54,
@@ -408,72 +321,19 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     color: TEXT_MUTED,
   },
-  methodChange: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: GREEN,
-  },
   historySection: {
     borderRadius: 14,
     backgroundColor: SURFACE,
     padding: Spacing.three,
     gap: Spacing.two,
   },
-  historyMeta: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: TEXT_MUTED,
-  },
-  paymentList: {
-    gap: Spacing.one,
-  },
-  paymentRow: {
-    minHeight: 60,
-    borderRadius: 12,
-    flexDirection: 'row',
+  emptyHistory: {
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
+    paddingVertical: Spacing.three,
   },
-  paymentDateIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#eefaf3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paymentInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  paymentAmount: {
+  emptyHistoryText: {
     fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  paymentMeta: {
-    fontSize: 11,
-    lineHeight: 15,
+    lineHeight: 18,
     color: TEXT_MUTED,
-  },
-  paymentRight: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  paymentStatus: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: GREEN_DARK,
-  },
-  paymentRef: {
-    fontSize: 10,
-    lineHeight: 13,
-    color: TEXT_MUTED,
-  },
-  pressed: {
-    opacity: 0.72,
   },
 });

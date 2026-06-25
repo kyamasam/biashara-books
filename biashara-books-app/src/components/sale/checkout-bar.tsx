@@ -1,6 +1,8 @@
 import { ArrowRight } from 'lucide-react-native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { PRIMARY_BUTTON_COLOR } from '@/components/ui/button';
+
 type CheckoutBarProps = {
   total: number;
   onCheckout: () => void;
@@ -23,7 +25,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#3D2563',
+    backgroundColor: PRIMARY_BUTTON_COLOR,
     borderRadius: 32,
     paddingVertical: 18,
     paddingHorizontal: 28,

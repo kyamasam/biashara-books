@@ -15,6 +15,9 @@ public interface ProductCategoryRepository extends ReactiveCrudRepository<Produc
     @Query("SELECT * FROM product_categories WHERE name ILIKE CONCAT('%', $1, '%')")
     Flux<ProductCategory> findByNameContaining(String name);
 
+    @Query("SELECT * FROM product_categories WHERE LOWER(name) = LOWER($1) LIMIT 1")
+    Mono<ProductCategory> findByName(String name);
+
     @Query("SELECT EXISTS(SELECT 1 FROM product_categories WHERE name = $1)")
     Mono<Boolean> existsByName(String name);
 }

@@ -18,6 +18,12 @@ public interface SystemLoanRepository extends ReactiveCrudRepository<SystemLoan,
     @Query("SELECT * FROM system_loan WHERE user_id = $1")
     Flux<SystemLoan> findAllSystemLoansByUserId(UUID userId);
 
+    @Query("SELECT * FROM system_loan WHERE business_id = $1")
+    Flux<SystemLoan> findByBusinessId(UUID businessId);
+
+    @Query("SELECT * FROM system_loan WHERE business_id = $1 AND institution_name = $2")
+    Mono<SystemLoan> findByBusinessIdAndInstitutionName(UUID businessId, String institutionName);
+
     @Query("DELETE FROM system_loan WHERE id = $1")
     Mono<Void> deleteSystemLoanById(UUID id);
 }

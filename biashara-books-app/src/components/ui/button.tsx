@@ -20,6 +20,8 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 type IconPosition = 'left' | 'right';
 
+export const PRIMARY_BUTTON_COLOR = '#2FC56D';
+
 type AppButtonProps = Omit<ComponentProps<typeof Pressable>, 'style'> & {
   label?: string;
   variant?: Variant;
@@ -34,7 +36,7 @@ type AppButtonProps = Omit<ComponentProps<typeof Pressable>, 'style'> & {
 };
 
 const VARIANT_BG: Record<Variant, string> = {
-  primary: '#2FC56D',
+  primary: PRIMARY_BUTTON_COLOR,
   secondary: '#F0F0F3',
   ghost: 'transparent',
   danger: '#DC2626',

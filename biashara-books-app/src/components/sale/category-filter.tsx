@@ -2,24 +2,25 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 import { ProductCategory } from '@/types/product';
 
-type FilterCategory = 'All' | ProductCategory;
-
-const CATEGORIES: FilterCategory[] = ['All', 'Groceries', 'Drinks', 'Animal Products'];
+type FilterCategory = 'All' | string;
 
 type CategoryFilterProps = {
+  categories: ProductCategory[];
   selected: FilterCategory;
   onSelect: (category: FilterCategory) => void;
 };
 
-export { FilterCategory, CATEGORIES };
+export { FilterCategory };
 
-export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
+export function CategoryFilter({ categories, selected, onSelect }: CategoryFilterProps) {
+  const filterCategories: FilterCategory[] = ['All', ...categories.map((category) => category.name)];
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}>
-      {CATEGORIES.map((category) => {
+      {filterCategories.map((category) => {
         const isActive = selected === category;
         return (
           <TouchableOpacity

@@ -2,7 +2,11 @@ package com.mpesa.africa.biashara.book.service;
 
 import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.request.ProductRequest;
+import com.mpesa.africa.biashara.book.model.dto.response.PageResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.ProductResponse;
+import com.mpesa.africa.biashara.book.model.entity.Inventory;
 import com.mpesa.africa.biashara.book.model.entity.Product;
+import com.mpesa.africa.biashara.book.repository.InventoryRepository;
 import com.mpesa.africa.biashara.book.repository.ProductRepository;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +15,8 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -19,6 +25,7 @@ import java.util.UUID;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final InventoryRepository inventoryRepository;
     private final UserRepository userRepository;
 
     public Mono<Product> createProduct(ProductRequest request, UUID userId) {
@@ -45,9 +52,27 @@ public class ProductService {
                         .switchIfEmpty(Mono.error(new CustomException("Product not found or access denied"))));
     }
 
-    public Flux<Product> getAllProducts(UUID userId) {
-        return resolveBusinessId(userId)
-                .flatMapMany(productRepository::findByBusinessId);
+    public Mono<PageResponse<ProductResponse>> getAllProducts(UUID userId, int page, int size, String name, UUID categoryId) {
+        return resolveBusinessId(userId).flatMap(businessId -> {
+            int offset = (page - 1) * size;
+            Mono<Long> countMono = productRepository.countByBusinessIdFiltered(businessId, name, categoryId);
+            Mono<java.util.List<ProductResponse>> productsMono = productRepository
+                    .findByBusinessIdFilteredPaged(businessId, name, categoryId, size, offset)
+                    .flatMap(product -> enrichWithInventory(product, userId))
+                    .collectList();
+
+            return Mono.zip(productsMono, countMono)
+                    .map(tuple -> PageResponse.<ProductResponse>builder()
+                            .content(tuple.getT1())
+                            .page(page)
+                            .size(size)
+                            .totalElements(tuple.getT2())
+                            .totalPages((int) Math.ceil((double) tuple.getT2() / size))
+                            .first(page == 1)
+                            .last((long) page * size >= tuple.getT2())
+                            .empty(tuple.getT1().isEmpty())
+                            .build());
+        });
     }
 
     public Flux<Product> searchProducts(UUID userId, String name) {
@@ -75,6 +100,17 @@ public class ProductService {
                         .filter(product -> businessId.equals(product.getBusinessId()))
                         .switchIfEmpty(Mono.error(new CustomException("Product not found or access denied")))
                         .flatMap(productRepository::delete));
+    }
+
+    private Mono<ProductResponse> enrichWithInventory(Product product, UUID userId) {
+        Mono<Double> qty = inventoryRepository.sumQuantityByProductId(product.getId())
+                .defaultIfEmpty(0.0);
+        Mono<BigDecimal> price = inventoryRepository.maxSalePriceByProductId(product.getId())
+                .defaultIfEmpty(BigDecimal.ZERO);
+        Mono<List<Inventory>> inventory = inventoryRepository.findByUserIdAndProductId(userId, product.getId())
+                .collectList();
+        return Mono.zip(qty, price, inventory)
+                .map(t -> ProductResponse.from(product, t.getT1(), t.getT2(), t.getT3()));
     }
 
     private Mono<UUID> resolveBusinessId(UUID userId) {

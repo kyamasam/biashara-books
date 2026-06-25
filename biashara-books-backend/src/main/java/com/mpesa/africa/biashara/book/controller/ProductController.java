@@ -3,6 +3,8 @@ package com.mpesa.africa.biashara.book.controller;
 import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
 import com.mpesa.africa.biashara.book.model.dto.request.ProductRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.PageResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.ProductResponse;
 import com.mpesa.africa.biashara.book.model.entity.Product;
 import com.mpesa.africa.biashara.book.service.ProductService;
 import jakarta.validation.Valid;
@@ -42,11 +44,15 @@ public class ProductController {
     }
 
     @GetMapping
-    public Mono<ApiResponse<List<Product>>> getAllProducts() {
+    public Mono<ApiResponse<PageResponse<ProductResponse>>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) UUID categoryId) {
         return getCurrentUserId().flatMap(userId -> {
-            log.info("Fetching all products for user: {}", userId);
-            return productService.getAllProducts(userId).collectList();
-        }).map(products -> ApiResponse.success(products, "Products retrieved successfully"));
+            log.info("Fetching products for user: {}, page: {}, size: {}, name: {}, categoryId: {}", userId, page, size, name, categoryId);
+            return productService.getAllProducts(userId, page, size, name, categoryId);
+        }).map(result -> ApiResponse.success(result, "Products retrieved successfully"));
     }
 
     @GetMapping("/search")

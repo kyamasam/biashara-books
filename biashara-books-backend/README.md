@@ -78,6 +78,35 @@ java -jar target/mvp-reactive-api-1.0.0.jar
 
 The server starts on **http://localhost:8080**.
 
+## Seed Data
+
+The backend includes a startup seeder for a clothing store catalog:
+
+- Categories: `Tops & Shirts`, `Outerwear & Hoodies`, `Bottoms`, `Footwear & Accessories`
+- Products: sample clothing products with Unsplash image URLs
+
+The seeder runs automatically when the Spring Boot app starts:
+
+```bash
+./mvnw spring-boot:run
+```
+
+No separate command is needed. Make sure the database is configured and Flyway migrations have run; both happen during normal app startup.
+
+### How Product Businesses Are Selected
+
+Products are not seeded as global catalog rows because `products.user_id` is required. On startup, the seeder:
+
+1. Creates the clothing categories if they do not already exist.
+2. Reads every existing row from the `business` table.
+3. Adds the clothing products to each business using:
+   - `business_id = business.id`
+   - `user_id = business.user_id`
+
+The seeder is idempotent per business and product name, so restarting the backend will not duplicate the same product for the same business.
+
+If there are no businesses in the database yet, only the categories are created. Create a business first, then restart the backend to seed products for that business.
+
 ## Running Tests
 
 ```bash

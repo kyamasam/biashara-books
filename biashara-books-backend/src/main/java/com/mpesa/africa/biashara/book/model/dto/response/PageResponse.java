@@ -18,7 +18,7 @@ public class PageResponse<T> {
     @Schema(description = "Items in the requested page.")
     private List<T> content;
 
-    @Schema(description = "Zero-based page number.", example = "0")
+    @Schema(description = "One-based page number.", example = "1")
     private int page;
 
     @Schema(description = "Requested page size after server bounds are applied.", example = "20")
@@ -42,7 +42,7 @@ public class PageResponse<T> {
     public static <T> PageResponse<T> from(Page<T> page) {
         return PageResponse.<T>builder()
                 .content(page.getContent())
-                .page(page.getNumber())
+                .page(page.getNumber() + 1)
                 .size(page.getSize())
                 .totalElements(page.getTotalElements())
                 .totalPages(page.getTotalPages())
