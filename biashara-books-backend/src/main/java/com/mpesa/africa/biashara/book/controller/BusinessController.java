@@ -49,6 +49,14 @@ public class BusinessController {
         }).map(businesses -> ApiResponse.success(businesses, "Businesses retrieved successfully"));
     }
 
+    @PostMapping("/current/refresh-balance")
+    public Mono<ApiResponse<Business>> refreshCurrentBusinessBalance() {
+        return getCurrentUserId().flatMap(userId -> {
+            log.info("Refreshing FastDuka account balance for user: {}", userId);
+            return businessService.refreshCurrentBusinessBalance(userId);
+        }).map(business -> ApiResponse.success(business, "Balance refreshed successfully"));
+    }
+
     @PutMapping("/{id}")
     public Mono<ApiResponse<Business>> updateBusiness(@PathVariable UUID id, @Valid @RequestBody BusinessRequest request) {
         return getCurrentUserId().flatMap(userId -> {

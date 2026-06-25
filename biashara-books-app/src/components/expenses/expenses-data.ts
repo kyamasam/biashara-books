@@ -1,4 +1,4 @@
-export type ExpenseCategory = 'Rent' | 'Stock' | 'Utilities' | 'Salaries';
+export type ExpenseCategory = string;
 
 export type ExpenseCategoryFilter = 'All' | ExpenseCategory;
 
@@ -6,8 +6,10 @@ export type Expense = {
   id: string;
   vendor: string;
   category: ExpenseCategory;
+  expenseTypeId: string;
   categoryLabel: string;
   amount: number;
+  date: string;
   time: string;
 };
 
@@ -63,16 +65,20 @@ export const EXPENSE_GROUPS: ExpenseGroup[] = [
         id: 'exp-1',
         vendor: 'Sam West Distributors',
         category: 'Stock',
+        expenseTypeId: 'stock',
         categoryLabel: 'Stock/Inventory',
         amount: 12000,
+        date: '2026-06-19',
         time: '5:13 PM',
       },
       {
         id: 'exp-2',
         vendor: 'KPLC',
         category: 'Utilities',
+        expenseTypeId: 'utilities',
         categoryLabel: 'Utilities',
         amount: 4000,
+        date: '2026-06-19',
         time: '5:13 PM',
       },
     ],
@@ -86,16 +92,20 @@ export const EXPENSE_GROUPS: ExpenseGroup[] = [
         id: 'exp-3',
         vendor: 'Sam West Distributors',
         category: 'Stock',
+        expenseTypeId: 'stock',
         categoryLabel: 'Stock/Inventory',
         amount: 12000,
+        date: '2026-06-18',
         time: '5:13 PM',
       },
       {
         id: 'exp-4',
         vendor: 'Sam West Distributors',
         category: 'Stock',
+        expenseTypeId: 'stock',
         categoryLabel: 'Stock/Inventory',
         amount: 12000,
+        date: '2026-06-18',
         time: '5:13 PM',
       },
     ],

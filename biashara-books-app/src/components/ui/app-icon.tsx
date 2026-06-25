@@ -12,6 +12,7 @@ import {
   LogOut,
   QrCode,
   ReceiptText,
+  RefreshCw,
   Send,
   ShoppingCart,
 } from 'lucide-react-native';
@@ -31,6 +32,7 @@ const ICONS = {
   pay: Send,
   pos: ShoppingCart,
   qr: QrCode,
+  refresh: RefreshCw,
   sale: ShoppingCart,
   transactionIn: ArrowDownLeft,
   transactionOut: ArrowUpRight,

@@ -17,6 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -123,6 +124,10 @@ public class TransactionService {
     }
 
     public Mono<Transaction> updateTransactionStatus(UUID id, TransactionStatus status, String details, UUID userId) {
+        return updateTransactionStatus(id, status, details, null, userId);
+    }
+
+    public Mono<Transaction> updateTransactionStatus(UUID id, TransactionStatus status, String details, String confirmationCode, UUID userId) {
         return resolveCurrentBusinessId(userId)
                 .flatMap(businessId -> transactionRepository.findById(id)
                         .filter(transaction -> businessId.equals(transaction.getBusinessId()))
@@ -130,6 +135,9 @@ public class TransactionService {
                         .flatMap(transaction -> {
                             transaction.setTransactionStatus(status);
                             transaction.setTransactionStatusDetails(details);
+                            if (confirmationCode != null) {
+                                transaction.setConfirmationCode(confirmationCode);
+                            }
                             return transactionRepository.save(transaction);
                         }));
     }
@@ -142,6 +150,22 @@ public class TransactionService {
                         .flatMap(transaction -> {
                             transaction.setReconciliationId(reconciliationId);
                             transaction.setCallbackResp((java.util.Map<String, Object>) callbackResp);
+                            return transactionRepository.save(transaction);
+                        }));
+    }
+
+    public Mono<Transaction> updateTransactionPaymentResult(UUID id, TransactionStatus status, String details,
+                                                            String reconciliationId, Map<String, Object> callbackResp,
+                                                            UUID userId) {
+        return resolveCurrentBusinessId(userId)
+                .flatMap(businessId -> transactionRepository.findById(id)
+                        .filter(transaction -> businessId.equals(transaction.getBusinessId()))
+                        .switchIfEmpty(Mono.error(new CustomException("Transaction not found or access denied")))
+                        .flatMap(transaction -> {
+                            transaction.setTransactionStatus(status);
+                            transaction.setTransactionStatusDetails(details);
+                            transaction.setReconciliationId(reconciliationId);
+                            transaction.setCallbackResp(callbackResp);
                             return transactionRepository.save(transaction);
                         }));
     }

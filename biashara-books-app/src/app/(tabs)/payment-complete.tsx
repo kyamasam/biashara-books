@@ -38,12 +38,13 @@ export default function PaymentCompleteScreen() {
   const router = useRouter();
   const currentSale = useSaleStore((state) => state.currentSale);
   const clearCurrentSale = useSaleStore((state) => state.clearCurrentSale);
+  const completedSaleId = useSaleStore((state) => state.completedSaleId);
   const user = useUserStore((state) => state.user);
 
   const subtotal = currentSale.amountPaid;
   const tax = useMemo(() => Math.round(subtotal * TAX_RATE), [subtotal]);
   const total = subtotal + tax;
-  const ref = shortRef(currentSale.transactionId);
+  const ref = shortRef(completedSaleId ?? currentSale.transactionId);
   const business = user?.currentBusiness;
 
   function handleNewSale() {

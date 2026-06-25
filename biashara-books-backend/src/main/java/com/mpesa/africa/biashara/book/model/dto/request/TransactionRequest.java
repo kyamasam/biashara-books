@@ -85,9 +85,10 @@ public class TransactionRequest {
                     - paybill: M-PESA PayBill account.
                     - till: M-PESA Buy Goods till.
                     - bank_transfer: Bank account transfer.
+                    - cash: Physical cash payment (no M-PESA channel).
                     """,
             example = "pochi",
-            allowableValues = {"pochi", "paybill", "till", "bank_transfer"}
+            allowableValues = {"pochi", "paybill", "till", "bank_transfer", "cash"}
     )
     private PaymentChannel paymentChannel;
 

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Repository
@@ -39,4 +41,10 @@ public interface TransactionRepository extends ReactiveCrudRepository<Transactio
 
     @Query("SELECT * FROM transaction WHERE business_id = $1 ORDER BY created_at DESC LIMIT $2")
     Flux<Transaction> findRecentByBusinessId(UUID businessId, int limit);
+
+    @Query("SELECT COALESCE(SUM(transaction_amount), 0) FROM transaction WHERE business_id = $1 AND transaction_status = 'COMPLETED'")
+    Mono<BigDecimal> sumCompletedAmountByBusinessId(UUID businessId);
+
+    @Query("SELECT COALESCE(SUM(transaction_amount), 0) FROM transaction WHERE business_id = $1 AND transaction_status = 'COMPLETED' AND created_at BETWEEN $2 AND $3")
+    Mono<BigDecimal> sumCompletedAmountByBusinessIdAndDateRange(UUID businessId, LocalDateTime startDate, LocalDateTime endDate);
 }

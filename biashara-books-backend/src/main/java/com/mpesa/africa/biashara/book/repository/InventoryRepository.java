@@ -8,6 +8,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Repository
@@ -27,4 +28,16 @@ public interface InventoryRepository extends ReactiveCrudRepository<Inventory, U
 
     @Query("SELECT MAX(unit_sale_price) FROM inventory WHERE product_id = $1")
     Mono<BigDecimal> maxSalePriceByProductId(UUID productId);
+
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1")
+    Mono<Double> sumQuantityByUserId(UUID userId);
+
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1 AND created_at BETWEEN $2 AND $3")
+    Mono<Double> sumQuantityByUserIdAndDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate);
+
+    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1")
+    Mono<Double> sumStockValueByUserId(UUID userId);
+
+    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1 AND created_at BETWEEN $2 AND $3")
+    Mono<Double> sumStockValueByUserIdAndDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate);
 }

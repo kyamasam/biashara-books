@@ -32,12 +32,13 @@ function parseApiError(data: Record<string, unknown>): ApiError {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+  const { headers: optHeaders, ...restOptions } = options;
   const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
+      ...(optHeaders ?? {}),
     },
-    ...options,
+    ...restOptions,
   });
 
   const data = await response.json();

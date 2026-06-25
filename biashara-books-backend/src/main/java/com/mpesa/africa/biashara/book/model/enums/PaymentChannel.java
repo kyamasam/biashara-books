@@ -22,5 +22,8 @@ public enum PaymentChannel {
     till,
 
     @Schema(description = "Bank account transfer.")
-    bank_transfer
+    bank_transfer,
+
+    @Schema(description = "Physical cash payment.")
+    cash
 }

@@ -4,26 +4,30 @@ import { useRouter } from 'expo-router';
 import {
   AlarmClock,
   Archive,
-  ArrowDownUp,
-  ArrowUp,
   BatteryFull,
   Bluetooth,
   ChevronDown,
+  ChartNoAxesCombined,
   ReceiptText,
   ShoppingBag,
   ShoppingCart,
   SignalHigh,
+  TrendingDown,
   WalletCards,
   Wifi,
 } from 'lucide-react-native';
-import { useState, type ComponentProps, type ComponentType } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps, type ComponentType } from 'react';
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BusinessScoreCard } from '@/components/books/business-score-card';
 import { HomeHeader } from '@/components/home/home-header';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { useBusinessScoreStore } from '@/store/business-score-store';
+import { useStatsStore } from '@/store/stats-store';
 
 type IconComponent = ComponentType<ComponentProps<typeof ShoppingCart>>;
 
@@ -58,6 +62,12 @@ const startOfDay = (date: Date) => {
   return nextDate;
 };
 
+const endOfDay = (date: Date) => {
+  const nextDate = new Date(date);
+  nextDate.setHours(23, 59, 59, 999);
+  return nextDate;
+};
+
 const subtractDays = (date: Date, days: number) =>
   startOfDay(new Date(date.getTime() - days * 24 * 60 * 60 * 1000));
 
@@ -72,27 +82,27 @@ const getStartOfWeek = (date: Date) => {
 const getStartOfLastMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() - 1, 1);
 
 const PRESETS: PresetOption[] = [
-  { label: 'Today', range: { startDate: startOfDay(today), endDate: startOfDay(today) } },
+  { label: 'Today', range: { startDate: startOfDay(today), endDate: endOfDay(today) } },
   {
     label: 'Yesterday',
-    range: { startDate: subtractDays(today, 1), endDate: subtractDays(today, 1) },
+    range: { startDate: subtractDays(today, 1), endDate: endOfDay(subtractDays(today, 1)) },
   },
   {
     label: 'This Week',
-    range: { startDate: getStartOfWeek(today), endDate: startOfDay(today) },
+    range: { startDate: getStartOfWeek(today), endDate: endOfDay(today) },
   },
   {
     label: 'Last Week',
     range: {
       startDate: subtractDays(getStartOfWeek(today), 7),
-      endDate: subtractDays(getStartOfWeek(today), 1),
+      endDate: endOfDay(subtractDays(getStartOfWeek(today), 1)),
     },
   },
   {
     label: 'Last Month',
     range: {
       startDate: getStartOfLastMonth(today),
-      endDate: new Date(today.getFullYear(), today.getMonth(), 0),
+      endDate: endOfDay(new Date(today.getFullYear(), today.getMonth(), 0)),
     },
   },
 ];
@@ -101,19 +111,19 @@ const formatDateLabel = (date: Date) =>
   new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 
 const formatRangeLabel = ({ startDate, endDate }: DateRange) => {
-  if (startDate.getTime() === endDate.getTime()) {
+  if (startOfDay(startDate).getTime() === startOfDay(endDate).getTime()) {
     return formatDateLabel(startDate);
   }
 
   return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
 };
 
-const PERFORMANCE_ITEMS: PerformanceItem[] = [
-  { label: "Today's Sales\nVolume", value: 'KES 15,000', color: '#56b985', icon: ShoppingCart },
-  { label: "Today's Profit", value: 'KES 5,000', color: '#1464d8', icon: ArrowDownUp },
-  { label: 'Money In', value: 'KES 15,000', color: '#d72450', icon: ArrowUp },
-  { label: 'Money Out', value: 'KES 15,000', color: '#d4bd79', icon: WalletCards },
-];
+const formatPerformanceTitle = (selectedPreset: string, dateRange: DateRange) => {
+  if (selectedPreset === 'Today') return "Today's Performance";
+  if (selectedPreset === 'Yesterday') return "Yesterday's Performance";
+  if (selectedPreset) return `${selectedPreset}'s Performance`;
+  return `${formatRangeLabel(dateRange)} Performance`;
+};
 
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Make Sale', icon: ReceiptText },
@@ -122,14 +132,92 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Stock', icon: Archive },
 ];
 
+const formatMoney = (value = 0) =>
+  `KES ${value.toLocaleString('en-KE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+
+const padDatePart = (value: number) => value.toString().padStart(2, '0');
+
+const formatLocalDateTime = (date: Date) =>
+  `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}T${padDatePart(
+    date.getHours(),
+  )}:${padDatePart(date.getMinutes())}:${padDatePart(date.getSeconds())}`;
+
+const dateRangeToMonths = (range: DateRange) => {
+  const diffMs = range.endDate.getTime() - range.startDate.getTime();
+  const diffMonths = Math.ceil(diffMs / (1000 * 60 * 60 * 24 * 30));
+  return Math.max(1, Math.min(12, diffMonths));
+};
+
 export default function AccountsScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
+  const { accessToken } = useAuth();
+  const { stats, isLoading, error, fetchStats } = useStatsStore();
+  const { score, isLoading: scoreLoading, error: scoreError, fetchScore } = useBusinessScoreStore();
   const [selectedPreset, setSelectedPreset] = useState(PRESETS[0].label);
   const [dateRange, setDateRange] = useState<DateRange>(PRESETS[0].range);
   const [isRangeDropdownOpen, setIsRangeDropdownOpen] = useState(false);
   const [activeCustomDate, setActiveCustomDate] = useState<'start' | 'end' | null>(null);
   const rangeLabel = selectedPreset || formatRangeLabel(dateRange);
+  const performanceTitle = formatPerformanceTitle(selectedPreset, dateRange);
+
+  const performanceItems = useMemo<PerformanceItem[]>(
+    () => [
+      {
+        label: 'Sales\nVolume',
+        value: isLoading ? 'Loading...' : formatMoney(stats?.sales),
+        color: '#56b985',
+        icon: ShoppingCart,
+      },
+      {
+        label: 'Profit',
+        value: isLoading ? 'Loading...' : formatMoney(stats?.profit),
+        color: '#1464d8',
+        icon: ChartNoAxesCombined,
+      },
+      {
+        label: 'Expenses',
+        value: isLoading ? 'Loading...' : formatMoney(stats?.expenses),
+        color: '#d72450',
+        icon: TrendingDown,
+      },
+      {
+        label: 'Stock',
+        value: isLoading ? 'Loading...' : `${(stats?.stock ?? 0).toLocaleString('en-KE')} units`,
+        color: '#d4bd79',
+        icon: Archive,
+      },
+    ],
+    [isLoading, stats],
+  );
+
+  const loadStats = useCallback(() => {
+    if (!accessToken) return;
+
+    return fetchStats(
+      accessToken,
+      formatLocalDateTime(dateRange.startDate),
+      formatLocalDateTime(dateRange.endDate),
+    );
+  }, [accessToken, dateRange.endDate, dateRange.startDate, fetchStats]);
+
+  const loadScore = useCallback(() => {
+    if (!accessToken) return;
+    return fetchScore(accessToken, dateRangeToMonths(dateRange));
+  }, [accessToken, dateRange, fetchScore]);
+
+  useEffect(() => {
+    void loadStats();
+    void loadScore();
+  }, [loadStats, loadScore]);
+
+  const handleRefresh = useCallback(() => {
+    void loadStats();
+    void loadScore();
+  }, [loadStats, loadScore]);
 
   const selectPreset = (preset: PresetOption) => {
     setSelectedPreset(preset.label);
@@ -155,13 +243,21 @@ export default function AccountsScreen() {
           paddingRight: safeAreaInsets.right + 16,
         },
       ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={handleRefresh}
+          tintColor="#05785e"
+          colors={['#05785e']}
+        />
+      }
       showsVerticalScrollIndicator={false}>
       <View style={styles.page}>
         {Platform.OS === 'web' ? <MockStatusBar /> : null}
         <HomeHeader />
 
         <View style={styles.performanceHeader}>
-          <ThemedText style={styles.sectionTitle}>Today&apos;s Performance</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{performanceTitle}</ThemedText>
           <View style={styles.rangePickerContainer}>
             <Pressable
               accessibilityLabel="Select performance date range"
@@ -185,11 +281,15 @@ export default function AccountsScreen() {
                       accessibilityRole="menuitem"
                       accessibilityState={{ selected: isSelected }}
                       onPress={() => selectPreset(preset)}
-                      style={({ pressed }) => [
+                      // style={({ pressed }) => [
+                      //   styles.rangeOption,
+                      //   isSelected && styles.rangeOptionSelected,
+                      //   pressed && styles.pressed,
+                      // ]}
+                      style={[
                         styles.rangeOption,
-                        isSelected && styles.rangeOptionSelected,
-                        pressed && styles.pressed,
-                      ]}>
+                      ]}
+                    >
                       <ThemedText
                         style={[styles.rangeOptionLabel, isSelected && styles.rangeOptionLabelSelected]}>
                         {preset.label}
@@ -249,14 +349,14 @@ export default function AccountsScreen() {
                 if (activeCustomDate === 'start') {
                   const startDate = startOfDay(selectedDate);
                   const endDate =
-                    startDate.getTime() > currentRange.endDate.getTime() ? startDate : currentRange.endDate;
+                    startDate.getTime() > currentRange.endDate.getTime() ? endOfDay(startDate) : currentRange.endDate;
 
                   return { startDate, endDate };
                 }
 
-                const endDate = startOfDay(selectedDate);
+                const endDate = endOfDay(selectedDate);
                 const startDate =
-                  endDate.getTime() < currentRange.startDate.getTime() ? endDate : currentRange.startDate;
+                  endDate.getTime() < currentRange.startDate.getTime() ? startOfDay(endDate) : currentRange.startDate;
 
                 return { startDate, endDate };
               });
@@ -270,10 +370,12 @@ export default function AccountsScreen() {
         ) : null}
 
         <View style={styles.performanceGrid}>
-          {PERFORMANCE_ITEMS.map((item) => (
+          {performanceItems.map((item) => (
             <PerformanceCard key={item.label} item={item} />
           ))}
         </View>
+
+        {error ? <ThemedText style={styles.errorText}>{error}</ThemedText> : null}
 
         <View style={styles.quickActionsSection}>
           <ThemedText style={styles.quickActionsTitle}>Quick Actions</ThemedText>
@@ -283,6 +385,13 @@ export default function AccountsScreen() {
             ))}
           </View>
         </View>
+
+        <BusinessScoreCard
+          score={score}
+          isLoading={scoreLoading}
+          error={scoreError}
+          onRefresh={loadScore}
+        />
       </View>
     </ScrollView>
   );
@@ -530,6 +639,13 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '400',
     color: '#666666',
+  },
+  errorText: {
+    marginTop: -6,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: '#d72450',
   },
   quickActionsSection: {
     gap: 14,

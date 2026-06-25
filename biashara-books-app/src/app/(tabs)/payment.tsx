@@ -1,13 +1,15 @@
 import { ArrowRight, Check, XCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/home/icon-button';
 import { PageHeader } from '@/components/page-header';
 import { PRIMARY_BUTTON_COLOR } from '@/components/ui/button';
 import { BottomTabInset, BrandColors, Colors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
+import { authPost } from '@/lib/api';
 import { useSaleStore } from '@/store/sale-store';
 import { useUserStore } from '@/store/user-store';
 
@@ -44,11 +46,14 @@ function formatNumberInput(value: string) {
 export default function PaymentScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { accessToken } = useAuth();
   const user = useUserStore((state) => state.user);
   const currentSale = useSaleStore((state) => state.currentSale);
+  const setCompletedSaleId = useSaleStore((state) => state.setCompletedSaleId);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa');
   const [phone, setPhone] = useState(() => formatPhone(user?.phoneCode, user?.phoneNumber));
   const [cashAmount, setCashAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const subtotal = currentSale.amountPaid;
   const tax = useMemo(() => Math.round(subtotal * TAX_RATE), [subtotal]);
@@ -56,19 +61,43 @@ export default function PaymentScreen() {
   const isMpesa = paymentMethod === 'mpesa';
   const cashTendered = Number(cashAmount.replace(/,/g, '')) || 0;
   const change = Math.max(cashTendered - total, 0);
-  const canProceed = isMpesa ? phone.trim().length > 0 : cashTendered >= total;
+  const canProceed = !isSubmitting && (isMpesa ? phone.trim().length > 0 : cashTendered >= total);
 
   function handleCashAmountChange(value: string) {
     setCashAmount(formatNumberInput(value));
   }
 
-  function handleProceed() {
-    if (isMpesa) {
-      router.push({ pathname: '/mpesa-prompt', params: { phone: phone.replace(/\s/g, '') } });
-      return;
+  async function handleProceed() {
+    if (!accessToken) return;
+    setIsSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        items: currentSale.items,
+        amountPaid: total,
+        paymentMethod: isMpesa ? 'mpesa' : 'cash',
+      };
+      if (isMpesa) {
+        payload.customerPhone = phone.replace(/\s/g, '');
+      }
+      const response = await authPost<{ data: { id: string; saleStatus: string } }>(
+        '/api/sales',
+        payload,
+        accessToken,
+      );
+      setCompletedSaleId(response.data.id);
+      if (isMpesa) {
+        router.push({
+          pathname: '/mpesa-prompt',
+          params: { phone: phone.replace(/\s/g, ''), saleId: response.data.id },
+        });
+      } else {
+        router.push('/payment-complete');
+      }
+    } catch (e: any) {
+      Alert.alert('Payment Failed', e?.message ?? 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.push('/payment-complete');
   }
 
   return (
@@ -185,7 +214,7 @@ export default function PaymentScreen() {
             styles.proceedButton,
             !canProceed && styles.proceedButtonDisabled,
           ]}>
-          <Text style={styles.proceedText}>Proceed</Text>
+          <Text style={styles.proceedText}>{isSubmitting ? 'Processing…' : 'Proceed'}</Text>
           <ArrowRight size={22} color="#FFFFFF" strokeWidth={2.6} />
         </TouchableOpacity>
       </View>

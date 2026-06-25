@@ -1,5 +1,6 @@
 package com.mpesa.africa.biashara.book.model.dto.request;
 
+import com.mpesa.africa.biashara.book.model.enums.ExpensePaymentMethod;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -25,4 +26,16 @@ public class ExpenseRequest {
     private BigDecimal expenseAmount;
 
     private UUID transactionId;
+
+    private ExpensePaymentMethod paymentMethod;
+
+    private Long sourceAccountId;
+
+    private String destinationPaybill;
+
+    private String accountReference;
+
+    private String remarks;
+
+    private String requester;
 }

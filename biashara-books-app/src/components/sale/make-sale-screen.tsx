@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -59,28 +67,30 @@ export function MakeSaleScreen() {
   const [cart, setCart] = useState<CartMap>({});
   const [selectedProducts, setSelectedProducts] = useState<Record<string, Product>>({});
   const [focusedProductId, setFocusedProductId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
+  const loadCategories = useCallback(async (shouldUpdate: () => boolean = () => true) => {
     if (!accessToken) return;
 
+    try {
+      const response = await authGet<ProductCategoryResponse>('/api/categories', accessToken);
+      if (shouldUpdate()) {
+        setCategories(response.data);
+      }
+    } catch {
+      if (shouldUpdate()) {
+        setCategories([]);
+      }
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
     let isMounted = true;
-
-    authGet<ProductCategoryResponse>('/api/categories', accessToken)
-      .then((response) => {
-        if (isMounted) {
-          setCategories(response.data);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setCategories([]);
-        }
-      });
-
+    void Promise.resolve().then(() => loadCategories(() => isMounted));
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [loadCategories]);
 
   const activeCategory = useMemo(() => {
     if (selectedCategory === 'All') return selectedCategory;
@@ -93,33 +103,37 @@ export function MakeSaleScreen() {
     return categories.find((category) => category.name === activeCategory)?.id ?? null;
   }, [activeCategory, categories]);
 
-  useEffect(() => {
+  const loadProducts = useCallback(async (shouldUpdate: () => boolean = () => true) => {
     if (!accessToken) return;
-
-    let isMounted = true;
 
     const params = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
     if (search) params.set('name', search);
     if (activeCategoryId) params.set('categoryId', activeCategoryId);
 
-    authGet<ProductsResponse>(`/api/products?${params.toString()}`, accessToken)
-      .then((response) => {
-        if (isMounted) {
-          setApiProducts(response.data.content);
-          setProductPage(response.data);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setApiProducts([]);
-          setProductPage(null);
-        }
-      });
+    try {
+      const response = await authGet<ProductsResponse>(
+        `/api/products?${params.toString()}`,
+        accessToken,
+      );
+      if (shouldUpdate()) {
+        setApiProducts(response.data.content);
+        setProductPage(response.data);
+      }
+    } catch {
+      if (shouldUpdate()) {
+        setApiProducts([]);
+        setProductPage(null);
+      }
+    }
+  }, [accessToken, page, search, activeCategoryId]);
 
+  useEffect(() => {
+    let isMounted = true;
+    void Promise.resolve().then(() => loadProducts(() => isMounted));
     return () => {
       isMounted = false;
     };
-  }, [accessToken, page, search, activeCategoryId]);
+  }, [loadProducts]);
 
   const products = useMemo(() => {
     return apiProducts.map((product) => mapApiProduct(product, categories));
@@ -169,6 +183,17 @@ export function MakeSaleScreen() {
     setPage(1);
   }, []);
 
+  const handleRefresh = useCallback(async () => {
+    if (!accessToken) return;
+
+    setIsRefreshing(true);
+    try {
+      await Promise.all([loadCategories(), loadProducts()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [accessToken, loadCategories, loadProducts]);
+
   const decrement = useCallback((product: Product) => {
     setCart((prev) => {
       const current = prev[product.id] ?? 0;
@@ -213,6 +238,14 @@ export function MakeSaleScreen() {
         keyExtractor={(item) => item.id}
         numColumns={COLUMNS}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#1A6B52"
+            colors={['#1A6B52']}
+          />
+        }
         contentContainerStyle={[
           styles.listContent,
           {

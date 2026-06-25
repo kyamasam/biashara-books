@@ -1,5 +1,7 @@
 package com.mpesa.africa.biashara.book.model.entity;
 
+import com.mpesa.africa.biashara.book.model.enums.ExpensePaymentMethod;
+import com.mpesa.africa.biashara.book.model.enums.ExpenseStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +27,9 @@ public class Expense {
     private String otherName;
     private BigDecimal expenseAmount;
     private UUID transactionId;
+    private ExpensePaymentMethod paymentMethod;
+    private ExpenseStatus expenseStatus;
+    private String b2bConversationId;
     private UUID userId;
     private UUID businessId;
 

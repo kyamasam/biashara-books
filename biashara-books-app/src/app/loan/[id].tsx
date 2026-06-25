@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CalendarClock, CheckCircle2, CreditCardIcon } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { CalendarClock, CheckCircle2, Send } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageHeader } from '@/components/page-header';
@@ -29,16 +29,42 @@ export default function LoanDetailScreen() {
 
   const [loan, setLoan] = useState<SystemLoan | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadLoan = useCallback(async (showLoading = true) => {
     if (!accessToken || !id) return;
-    setLoading(true);
-    authGet<SystemLoanResponse>(`/api/loans/system/${id}`, accessToken)
-      .then((res) => setLoan(res.data))
-      .catch((err) => setError(err?.message ?? 'Failed to load loan'))
-      .finally(() => setLoading(false));
+
+    if (showLoading) {
+      setLoading(true);
+    }
+    setError(null);
+
+    try {
+      const response = await authGet<SystemLoanResponse>(`/api/loans/system/${id}`, accessToken);
+      setLoan(response.data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load loan');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+      setRefreshing(false);
+    }
   }, [accessToken, id]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadLoan();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadLoan]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadLoan(false);
+  }, [loadLoan]);
 
   if (loading) {
     return (
@@ -72,6 +98,14 @@ export default function LoanDetailScreen() {
           paddingRight: safeAreaInsets.right + Spacing.three,
         },
       ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={GREEN}
+          colors={[GREEN]}
+        />
+      }
       showsVerticalScrollIndicator={false}>
       <View style={styles.page}>
         <PageHeader title="Loan Details" showBack />
@@ -123,8 +157,8 @@ export default function LoanDetailScreen() {
             </View>
           </View>
           <AppButton
-            label="Record payment"
-            icon={CreditCardIcon}
+            label="Make Payment"
+            icon={Send}
             color={GREEN_BRIGHT}
             fullWidth
             onPress={() => router.push({ pathname: '/loan/[id]/pay', params: { id: loan.id } })}

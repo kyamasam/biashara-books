@@ -1,65 +1,219 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { CreditCardIcon, Hash, Landmark, ReceiptText, ShieldCheck } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { CheckCircle2, Hash, Landmark, ReceiptText, Send, ShieldCheck } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageHeader } from '@/components/page-header';
 import { ThemedText } from '@/components/themed-text';
 import { AppButton } from '@/components/ui/button';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { formatKes, getLoanById } from '@/data/loans';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { authGet, authPost } from '@/lib/api';
+import { formatKes, type SystemLoan, type SystemLoanResponse } from '@/types/loan';
 
+const GREEN = '#0a8f55';
 const GREEN_DARK = '#087747';
 const GREEN_BRIGHT = '#33c976';
 const TEXT_MUTED = '#62676f';
 const SURFACE = '#ffffff';
+
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 90_000;
+
+type B2BResponse = {
+  id: number;
+  status: string;
+  conversation_id: string;
+  mpesa_code: string;
+  is_success: boolean;
+};
+
+type B2BStatusResponse = {
+  count: number;
+  results: Array<{
+    transaction_status: string;
+    transaction_confirmation_number: string;
+  }>;
+};
 
 export default function LoanPaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
   const router = useRouter();
-  const loan = getLoanById(id);
-  const balance = loan ? loan.total - loan.paid : 0;
-  const [amount, setAmount] = useState(() => String(loan?.monthlyPayment ?? 0));
-  const amountValue = Number(amount.replace(/,/g, '')) || 0;
-  const paymentOptions = useMemo(
-    () =>
-      loan
-        ? [
-          loan.monthlyPayment,
-          Math.min(balance, loan.monthlyPayment * 2),
-          balance,
-        ].filter((value, index, values) => value > 0 && values.indexOf(value) === index)
-        : [],
-    [balance, loan]
-  );
+  const { accessToken } = useAuth();
 
-  if (!loan) {
+  const [loan, setLoan] = useState<SystemLoan | null>(null);
+  const [loadingLoan, setLoadingLoan] = useState(true);
+
+  const [paybill, setPaybill] = useState('');
+  const [accountRef, setAccountRef] = useState('');
+  const [amount, setAmount] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!accessToken || !id) return;
+    authGet<SystemLoanResponse>(`/api/loans/system/${id}`, accessToken)
+      .then((res) => {
+        setLoan(res.data);
+        setAmount(String(res.data.monthlyRepaymentAmount));
+        setAccountRef(`LOAN-${res.data.id.slice(0, 8).toUpperCase()}`);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingLoan(false));
+  }, [accessToken, id]);
+
+  useEffect(() => {
+    if (!conversationId || !accessToken) return;
+
+    function stopPolling() {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      pollingRef.current = null;
+      timeoutRef.current = null;
+    }
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await authGet<B2BStatusResponse>(
+          `/api/b2b/status?conversation_id=${conversationId}`,
+          accessToken,
+        );
+        const result = res.results?.[0];
+        if (!result) return;
+
+        if (result.transaction_status === 'processed') {
+          stopPolling();
+          router.replace({
+            pathname: '/loan/[id]/success',
+            params: {
+              id: id ?? '',
+              amount: amount,
+              institutionName: loan?.institutionName ?? '',
+              mpesaCode: result.transaction_confirmation_number ?? '',
+            },
+          });
+        } else if (result.transaction_status === 'failed') {
+          stopPolling();
+          setProcessing(false);
+          setSubmitting(false);
+          Alert.alert('Payment Failed', 'The B2B payment was not completed. Please try again.');
+        }
+      } catch (_) {}
+    }, POLL_INTERVAL_MS);
+
+    timeoutRef.current = setTimeout(() => {
+      stopPolling();
+      setProcessing(false);
+      setSubmitting(false);
+      setPollTimedOut(true);
+    }, POLL_TIMEOUT_MS);
+
+    return stopPolling;
+  }, [conversationId, accessToken, id, amount, loan, router]);
+
+  async function handlePay() {
+    const amountValue = Number(amount.replace(/,/g, ''));
+    if (!paybill.trim()) {
+      Alert.alert('Missing field', 'Please enter the destination paybill number.');
+      return;
+    }
+    if (!accountRef.trim()) {
+      Alert.alert('Missing field', 'Please enter an account reference.');
+      return;
+    }
+    if (!amountValue || amountValue <= 0) {
+      Alert.alert('Invalid amount', 'Please enter a valid amount.');
+      return;
+    }
+    if (!accessToken) return;
+
+    setSubmitting(true);
+    try {
+      const res = await authPost<B2BResponse>('/api/b2b/pay', {
+        destination_paybill: paybill.trim(),
+        account_reference: accountRef.trim().slice(0, 13),
+        amount: amountValue,
+        remarks: `Loan repayment to ${loan?.institutionName ?? 'lender'}`,
+      }, accessToken);
+
+      setConversationId(res.conversation_id);
+      setProcessing(true);
+    } catch (err: any) {
+      setSubmitting(false);
+      Alert.alert('Payment Error', err?.message ?? 'Failed to initiate payment. Please try again.');
+    }
+  }
+
+  if (loadingLoan) {
     return (
-      <View style={[styles.emptyState, { backgroundColor: theme.background }]}>
-        <PageHeader title="Payment" showBack onBack={() => router.back()} />
-        <ThemedText style={styles.emptyText}>This loan could not be found.</ThemedText>
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <PageHeader title="Pay Loan" showBack onBack={() => router.back()} />
+        <ActivityIndicator size="large" color={GREEN} />
       </View>
     );
   }
 
-  function handlePay() {
-    if (!loan || amountValue <= 0) {
-      return;
-    }
-
-    router.push({
-      pathname: '/loan/[id]/success',
-      params: {
-        id: loan.id,
-        amount: String(amountValue),
-      },
-    });
+  if (!loan) {
+    return (
+      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+        <PageHeader title="Pay Loan" showBack onBack={() => router.back()} />
+        <ThemedText style={styles.errorText}>This loan could not be found.</ThemedText>
+      </View>
+    );
   }
+
+  if (processing) {
+    return (
+      <View style={[styles.processingScreen, { backgroundColor: theme.background }]}>
+        <View style={styles.processingCard}>
+          <View style={styles.processingIconHalo}>
+            <View style={styles.processingIconCircle}>
+              <Send size={40} color="#ffffff" strokeWidth={2.4} />
+            </View>
+          </View>
+          <ThemedText style={styles.processingTitle}>Processing Payment</ThemedText>
+          <ThemedText style={styles.processingSubtitle}>
+            Sending {formatKes(Number(amount))} to {loan.institutionName} via paybill {paybill}
+          </ThemedText>
+          {pollTimedOut ? (
+            <ThemedText style={styles.timedOutText}>
+              Payment is taking longer than expected. Check back later.
+            </ThemedText>
+          ) : (
+            <ActivityIndicator size="large" color={GREEN_BRIGHT} style={{ marginTop: Spacing.two }} />
+          )}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setProcessing(false);
+              setSubmitting(false);
+              setConversationId(null);
+            }}
+            style={styles.cancelButton}>
+            <ThemedText style={styles.cancelText}>Cancel</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const amountValue = Number(amount.replace(/,/g, '')) || 0;
+  const balance = loan.loanBalance;
+  const quickAmounts = [
+    loan.monthlyRepaymentAmount,
+    Math.min(balance, loan.monthlyRepaymentAmount * 2),
+    balance,
+  ].filter((v, i, arr) => v > 0 && arr.indexOf(v) === i);
 
   return (
     <ScrollView
@@ -73,54 +227,63 @@ export default function LoanPaymentScreen() {
           paddingRight: safeAreaInsets.right + Spacing.three,
         },
       ]}
-      showsVerticalScrollIndicator={false}>
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled">
       <View style={styles.page}>
-        <PageHeader title="Pay Loan" showBack />
+        <PageHeader title="Pay via M-Pesa B2B" showBack />
 
         <View style={styles.loanCard}>
-          <View style={styles.loanHeader}>
-            <View style={styles.logoFrame}>
-              <Image
-                source={loan.logo}
-                style={styles.logo}
-                contentFit="contain"
-                accessibilityLabel={`${loan.provider} logo`}
-              />
-            </View>
-            <View style={styles.loanCopy}>
-              <ThemedText style={styles.provider}>{loan.provider}</ThemedText>
-              <ThemedText style={styles.account}>{loan.account}</ThemedText>
-            </View>
-          </View>
-
+          <ThemedText style={styles.provider}>{loan.institutionName}</ThemedText>
           <View style={styles.balanceRow}>
-            <ThemedText style={styles.balanceLabel}>Outstanding</ThemedText>
+            <ThemedText style={styles.balanceLabel}>Outstanding balance</ThemedText>
             <ThemedText style={styles.balanceValue}>{formatKes(balance)}</ThemedText>
           </View>
         </View>
 
         <View style={styles.sourceCard}>
           <View style={styles.cardHeader}>
-            <ThemedText style={styles.cardTitle}>Payment source</ThemedText>
+            <ThemedText style={styles.cardTitle}>Destination paybill</ThemedText>
             <View style={styles.secureBadge}>
               <ShieldCheck size={13} color={GREEN_DARK} strokeWidth={2.4} />
-              <ThemedText style={styles.secureText}>Secure</ThemedText>
+              <ThemedText style={styles.secureText}>B2B Secure</ThemedText>
             </View>
           </View>
 
-          <View style={styles.paybillPanel}>
-            <View style={styles.paybillIcon}>
-              <Hash size={22} color={GREEN_DARK} strokeWidth={2.4} />
+          <View style={styles.inputRow}>
+            <View style={styles.inputIcon}>
+              <Hash size={18} color={GREEN_DARK} strokeWidth={2.4} />
             </View>
-            <View style={styles.paybillCopy}>
-              <ThemedText style={styles.paybillTitle}>Paybill {loan.paybill.number}</ThemedText>
-              <ThemedText style={styles.paybillMeta}>Account {loan.paybill.account}</ThemedText>
-            </View>
+            <TextInput
+              value={paybill}
+              onChangeText={(v) => setPaybill(v.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+              placeholder="Paybill number"
+              placeholderTextColor="#a0a6ad"
+              style={styles.textInput}
+            />
           </View>
 
           <View style={styles.detailGrid}>
-            <DetailCell icon={Landmark} label="Biller" value={loan.provider} />
-            <DetailCell icon={ReceiptText} label="Reference" value={loan.paybill.account} />
+            <View style={styles.detailCell}>
+              <Landmark size={15} color={GREEN_DARK} strokeWidth={2.3} />
+              <View style={styles.detailCopy}>
+                <ThemedText style={styles.detailLabel}>Lender</ThemedText>
+                <ThemedText style={styles.detailValue}>{loan.institutionName}</ThemedText>
+              </View>
+            </View>
+            <View style={styles.detailCell}>
+              <ReceiptText size={15} color={GREEN_DARK} strokeWidth={2.3} />
+              <View style={styles.detailCopy}>
+                <ThemedText style={styles.detailLabel}>Account ref</ThemedText>
+                <TextInput
+                  value={accountRef}
+                  onChangeText={(v) => setAccountRef(v.slice(0, 13))}
+                  placeholder="Ref (≤13 chars)"
+                  placeholderTextColor="#a0a6ad"
+                  style={styles.refInput}
+                />
+              </View>
+            </View>
           </View>
         </View>
 
@@ -130,9 +293,7 @@ export default function LoanPaymentScreen() {
             <ThemedText style={styles.currencyPrefix}>KES</ThemedText>
             <TextInput
               value={amount}
-              onChangeText={(value) => {
-                setAmount(value.replace(/[^0-9,]/g, ''));
-              }}
+              onChangeText={(v) => setAmount(v.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               placeholder="0"
               placeholderTextColor="#a0a6ad"
@@ -141,28 +302,26 @@ export default function LoanPaymentScreen() {
           </View>
 
           <View style={styles.quickAmounts}>
-            {paymentOptions.map((value) => (
+            {quickAmounts.map((v) => (
               <Pressable
-                key={value}
+                key={v}
                 accessibilityRole="button"
-                accessibilityLabel={`Set payment amount to ${formatKes(value)}`}
-                onPress={() => {
-                  setAmount(value.toLocaleString('en-KE'));
-                }}
+                accessibilityLabel={`Set amount to ${formatKes(v)}`}
+                onPress={() => setAmount(String(v))}
                 style={({ pressed }) => [styles.amountChip, pressed && styles.pressed]}>
                 <ThemedText style={styles.amountChipText}>
-                  {value === balance ? 'Full balance' : formatKes(value)}
+                  {v === balance ? 'Full balance' : formatKes(v)}
                 </ThemedText>
               </Pressable>
             ))}
           </View>
 
           <AppButton
-            label={`Confirm ${amountValue > 0 ? formatKes(amountValue) : ''}`.trim()}
-            icon={CreditCardIcon}
+            label={submitting ? 'Initiating…' : `Pay ${amountValue > 0 ? formatKes(amountValue) : ''}`.trim()}
+            icon={CheckCircle2}
             color={GREEN_BRIGHT}
             fullWidth
-            disabled={amountValue <= 0}
+            disabled={submitting || amountValue <= 0 || !paybill.trim()}
             onPress={handlePay}
           />
         </View>
@@ -171,111 +330,86 @@ export default function LoanPaymentScreen() {
   );
 }
 
-function DetailCell({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Landmark;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.detailCell}>
-      <Icon size={15} color={GREEN_DARK} strokeWidth={2.3} />
-      <View style={styles.detailCopy}>
-        <ThemedText style={styles.detailLabel}>{label}</ThemedText>
-        <ThemedText style={styles.detailValue}>{value}</ThemedText>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  scrollView: {
+  scrollView: { flex: 1 },
+  contentContainer: { alignItems: 'center' },
+  page: { width: '100%', maxWidth: MaxContentWidth, gap: Spacing.three },
+  centered: { flex: 1, padding: Spacing.three, gap: Spacing.three },
+  errorText: { color: '#b91c1c', fontSize: 14, lineHeight: 20 },
+
+  processingScreen: {
     flex: 1,
-  },
-  contentContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.four,
   },
-  page: {
+  processingCard: {
     width: '100%',
     maxWidth: MaxContentWidth,
+    borderRadius: 16,
+    backgroundColor: SURFACE,
+    alignItems: 'center',
     gap: Spacing.three,
+    padding: Spacing.four,
   },
-  emptyState: {
-    flex: 1,
-    padding: Spacing.three,
-    gap: Spacing.three,
+  processingIconHalo: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#ddf8e9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyText: {
+  processingIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#33c976',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  processingTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', textAlign: 'center' },
+  processingSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
     color: TEXT_MUTED,
+    textAlign: 'center',
+    maxWidth: 300,
   },
+  timedOutText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 24,
+    paddingHorizontal: Spacing.four,
+    paddingVertical: 12,
+    marginTop: Spacing.two,
+  },
+  cancelText: { fontSize: 15, fontWeight: '700', color: TEXT_MUTED },
+
   loanCard: {
     borderRadius: 14,
     backgroundColor: SURFACE,
     padding: Spacing.three,
-    gap: Spacing.three,
+    gap: Spacing.two,
     shadowColor: '#111827',
     shadowOpacity: 0.025,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 1,
   },
-  loanHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  logoFrame: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#edf0ee',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 15,
-  },
-  loanCopy: {
-    minWidth: 0,
-    flex: 1,
-  },
-  provider: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '700',
-  },
-  account: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: TEXT_MUTED,
-  },
-  balanceRow: {
-    gap: 3,
-  },
-  balanceLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: TEXT_MUTED,
-  },
-  balanceValue: {
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '800',
-  },
-  sourceCard: {
-    borderRadius: 14,
-    backgroundColor: SURFACE,
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
+  provider: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
+  balanceRow: { gap: 3 },
+  balanceLabel: { fontSize: 12, lineHeight: 16, color: TEXT_MUTED },
+  balanceValue: { fontSize: 26, lineHeight: 32, fontWeight: '800' },
+
+  sourceCard: { borderRadius: 14, backgroundColor: SURFACE, padding: Spacing.three, gap: Spacing.three },
   cardHeader: {
     minHeight: 28,
     flexDirection: 'row',
@@ -283,11 +417,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  cardTitle: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '700',
-  },
+  cardTitle: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
   secureBadge: {
     height: 24,
     borderRadius: 12,
@@ -297,47 +427,28 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 8,
   },
-  secureText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
-    color: GREEN_DARK,
-  },
-  paybillPanel: {
-    minHeight: 70,
+  secureText: { fontSize: 10, lineHeight: 12, fontWeight: '700', color: GREEN_DARK },
+
+  inputRow: {
+    height: 52,
     borderRadius: 12,
     backgroundColor: '#f6f8f7',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-    padding: Spacing.three,
+    paddingHorizontal: Spacing.three,
   },
-  paybillIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  inputIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#eefaf3',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  paybillCopy: {
-    minWidth: 0,
-    flex: 1,
-  },
-  paybillTitle: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: '800',
-  },
-  paybillMeta: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: TEXT_MUTED,
-  },
-  detailGrid: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
+  textInput: { flex: 1, fontSize: 16, fontWeight: '700', color: '#111111', paddingVertical: 0 },
+
+  detailGrid: { flexDirection: 'row', gap: Spacing.two },
   detailCell: {
     flex: 1,
     minWidth: 0,
@@ -349,26 +460,19 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     padding: Spacing.two,
   },
-  detailCopy: {
-    minWidth: 0,
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 10,
-    lineHeight: 13,
-    color: TEXT_MUTED,
-  },
-  detailValue: {
+  detailCopy: { minWidth: 0, flex: 1 },
+  detailLabel: { fontSize: 10, lineHeight: 13, color: TEXT_MUTED },
+  detailValue: { fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  refInput: {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
+    color: '#111111',
+    paddingVertical: 0,
+    minWidth: 0,
   },
-  amountCard: {
-    borderRadius: 14,
-    backgroundColor: SURFACE,
-    padding: Spacing.three,
-    gap: Spacing.three,
-  },
+
+  amountCard: { borderRadius: 14, backgroundColor: SURFACE, padding: Spacing.three, gap: Spacing.three },
   amountInputRow: {
     height: 50,
     borderRadius: 12,
@@ -380,26 +484,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     gap: Spacing.two,
   },
-  currencyPrefix: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: TEXT_MUTED,
-  },
-  amountInput: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 0,
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  quickAmounts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
+  currencyPrefix: { fontSize: 13, lineHeight: 17, fontWeight: '700', color: TEXT_MUTED },
+  amountInput: { flex: 1, minWidth: 0, paddingVertical: 0, fontSize: 22, lineHeight: 28, fontWeight: '800', color: '#111111' },
+  quickAmounts: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   amountChip: {
     minHeight: 32,
     borderRadius: 16,
@@ -408,13 +495,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  amountChipText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: GREEN_DARK,
-  },
-  pressed: {
-    opacity: 0.72,
-  },
+  amountChipText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: GREEN_DARK },
+  pressed: { opacity: 0.72 },
 });

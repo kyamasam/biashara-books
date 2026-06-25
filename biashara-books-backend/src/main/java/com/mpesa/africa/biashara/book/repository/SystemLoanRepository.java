@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Repository
@@ -26,4 +27,7 @@ public interface SystemLoanRepository extends ReactiveCrudRepository<SystemLoan,
 
     @Query("DELETE FROM system_loan WHERE id = $1")
     Mono<Void> deleteSystemLoanById(UUID id);
+
+    @Query("SELECT COALESCE(SUM(loan_balance), 0) FROM system_loan WHERE business_id = $1")
+    Mono<BigDecimal> sumLoanBalanceByBusinessId(UUID businessId);
 }

@@ -2,11 +2,17 @@ package com.mpesa.africa.biashara.book.service;
 
 import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.request.BusinessRequest;
+import com.mpesa.africa.biashara.book.model.dto.response.FastDukaAccountBalanceResponse;
 import com.mpesa.africa.biashara.book.model.entity.Business;
 import com.mpesa.africa.biashara.book.repository.BusinessRepository;
+import com.mpesa.africa.biashara.book.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -19,6 +25,9 @@ import java.util.UUID;
 public class BusinessService {
 
     private final BusinessRepository businessRepository;
+    private final UserRepository userRepository;
+    @Qualifier("fastDukaWebClient")
+    private final WebClient fastDukaWebClient;
 
     public Mono<Business> createBusiness(BusinessRequest request, UUID userId) {
         log.info("Creating business: {} for user: {}", request.getName(), userId);
@@ -30,6 +39,9 @@ public class BusinessService {
                 .shortCodeType(request.getShortCodeType())
                 .shortcodeBalance(defaultAmount(request.getShortcodeBalance()))
                 .shortcodeLoanLimit(defaultAmount(request.getShortcodeLoanLimit()))
+                .fastdukaApiKey(request.getFastdukaApiKey())
+                .fastdukaOrgId(request.getFastdukaOrgId())
+                .fastdukaConfigId(request.getFastdukaConfigId())
                 .build();
 
         return businessRepository.save(business);
@@ -45,6 +57,42 @@ public class BusinessService {
         return businessRepository.findByUserId(userId);
     }
 
+    public Mono<Business> refreshCurrentBusinessBalance(UUID userId) {
+        return userRepository.findById(userId)
+                .switchIfEmpty(Mono.error(new CustomException("User not found")))
+                .flatMap(user -> {
+                    if (user.getCurrentBusinessId() == null) {
+                        return Mono.error(new CustomException("No active business selected"));
+                    }
+                    return getBusinessById(user.getCurrentBusinessId(), userId);
+                })
+                .flatMap(business -> {
+                    String accountId = resolveFastDukaAccountId(business);
+                    WebClient.RequestHeadersSpec<?> request = fastDukaWebClient.get()
+                            .uri("/api/account_balance/{accountId}/", accountId);
+
+                    if (business.getFastdukaApiKey() != null && !business.getFastdukaApiKey().isBlank()) {
+                        request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + business.getFastdukaApiKey());
+                    }
+
+                    return request.retrieve()
+                            .onStatus(HttpStatusCode::is4xxClientError, response ->
+                                    response.bodyToMono(String.class)
+                                            .flatMap(body -> Mono.error(new CustomException("Balance refresh failed: " + body))))
+                            .onStatus(HttpStatusCode::is5xxServerError, response ->
+                                    Mono.error(new CustomException("Balance service unavailable, please try again")))
+                            .bodyToMono(FastDukaAccountBalanceResponse.class)
+                            .flatMap(balanceResponse -> {
+                                if (balanceResponse.getAccountBalance() == null) {
+                                    log.info("FastDuka returned no account balance for account: {}", accountId);
+                                    return Mono.just(business);
+                                }
+                                business.setShortcodeBalance(balanceResponse.getAccountBalance());
+                                return businessRepository.save(business);
+                            });
+                });
+    }
+
     public Mono<Business> updateBusiness(UUID id, BusinessRequest request, UUID userId) {
         return businessRepository.findById(id)
                 .filter(business -> business.getUserId().equals(userId))
@@ -55,6 +103,9 @@ public class BusinessService {
                     existingBusiness.setShortCodeType(request.getShortCodeType());
                     existingBusiness.setShortcodeBalance(defaultAmount(request.getShortcodeBalance()));
                     existingBusiness.setShortcodeLoanLimit(defaultAmount(request.getShortcodeLoanLimit()));
+                    existingBusiness.setFastdukaApiKey(request.getFastdukaApiKey());
+                    existingBusiness.setFastdukaOrgId(request.getFastdukaOrgId());
+                    existingBusiness.setFastdukaConfigId(request.getFastdukaConfigId());
                     return businessRepository.save(existingBusiness);
                 });
     }
@@ -68,5 +119,12 @@ public class BusinessService {
 
     private BigDecimal defaultAmount(BigDecimal amount) {
         return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private String resolveFastDukaAccountId(Business business) {
+        if (business.getFastdukaConfigId() != null && !business.getFastdukaConfigId().isBlank()) {
+            return business.getFastdukaConfigId();
+        }
+        return "1";
     }
 }

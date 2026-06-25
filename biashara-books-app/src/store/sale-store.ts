@@ -21,7 +21,9 @@ export type CheckoutItem = CurrentSaleItem & {
 type SaleState = {
   currentSale: CurrentSale;
   checkoutItems: CheckoutItem[];
+  completedSaleId: string | null;
   setCurrentSale: (items: CheckoutItem[]) => void;
+  setCompletedSaleId: (id: string) => void;
   clearCurrentSale: () => void;
 };
 
@@ -48,6 +50,8 @@ function emptySale(): CurrentSale {
 export const useSaleStore = create<SaleState>((set) => ({
   currentSale: emptySale(),
   checkoutItems: [],
+  completedSaleId: null,
+  setCompletedSaleId: (id) => set({ completedSaleId: id }),
   setCurrentSale: (items) => {
     const amountPaid = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
@@ -64,5 +68,5 @@ export const useSaleStore = create<SaleState>((set) => ({
       },
     }));
   },
-  clearCurrentSale: () => set({ currentSale: emptySale(), checkoutItems: [] }),
+  clearCurrentSale: () => set({ currentSale: emptySale(), checkoutItems: [], completedSaleId: null }),
 }));

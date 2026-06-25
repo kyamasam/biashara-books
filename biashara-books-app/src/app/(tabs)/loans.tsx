@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { ArrowUpRight, Bell, CalendarClock, CheckCircle2, QrCode, TrendingUp } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -22,6 +22,7 @@ const TEXT_MUTED = '#62676f';
 export default function LoansScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
+  const router = useRouter();
   const { accessToken } = useAuth();
 
   const user = useUserStore((s) => s.user);
@@ -29,16 +30,42 @@ export default function LoansScreen() {
 
   const [loans, setLoans] = useState<SystemLoan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadLoans = useCallback(async (showLoading = true) => {
     if (!accessToken) return;
-    setLoading(true);
-    authGet<SystemLoansResponse>('/api/loans/system', accessToken)
-      .then((res) => setLoans(res.data))
-      .catch((err) => setError(err?.message ?? 'Failed to load loans'))
-      .finally(() => setLoading(false));
+
+    if (showLoading) {
+      setLoading(true);
+    }
+    setError(null);
+
+    try {
+      const response = await authGet<SystemLoansResponse>('/api/loans/system', accessToken);
+      setLoans(response.data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load loans');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+      setRefreshing(false);
+    }
   }, [accessToken]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void loadLoans();
+    }, 0);
+
+    return () => clearTimeout(timeout);
+  }, [loadLoans]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadLoans(false);
+  }, [loadLoans]);
 
   const totalBalance = loans.reduce((sum, l) => sum + l.loanBalance, 0);
   const nextDue = loans.length
@@ -63,6 +90,14 @@ export default function LoansScreen() {
           paddingRight: safeAreaInsets.right + Spacing.three,
         },
       ]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={GREEN}
+          colors={[GREEN]}
+        />
+      }
       showsVerticalScrollIndicator={false}>
       <View style={styles.page}>
         <LoansHeader />
@@ -72,6 +107,7 @@ export default function LoansScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Apply for loan"
+            onPress={() => router.push('/loan/apply')}
             style={styles.applyButton}>
             <ThemedText style={styles.applyButtonText}>Apply for loan</ThemedText>
             <ArrowUpRight size={17} color="#ffffff" strokeWidth={2.5} />
@@ -140,7 +176,7 @@ function LoansHeader() {
 }
 
 function LoanLimitCard({ loanLimit }: { loanLimit: number }) {
-  const [whole, decimal] = loanLimit.toLocaleString('en-KE', { minimumFractionDigits: 0 }).split('.');
+  const [whole] = loanLimit.toLocaleString('en-KE', { minimumFractionDigits: 0 }).split('.');
 
   return (
     <View style={styles.limitCard}>

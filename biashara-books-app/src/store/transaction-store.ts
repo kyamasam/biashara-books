@@ -28,7 +28,7 @@ function formatAmount(amount: number, type: 'credit' | 'debit'): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
-  return type === 'debit' ? `+ KES ${formatted}` : `- KES ${formatted}`;
+  return type === 'credit' ? `+ KES ${formatted}` : `- KES ${formatted}`;
 }
 
 function formatDate(iso: string): string {
@@ -42,7 +42,11 @@ function groupKey(iso: string): string {
 }
 
 function mapTransaction(t: ApiTransaction): Transaction {
-  const customer = t.transactionType === 'debit' ? t.senderName : t.receiverName;
+  const customer =
+    t.transactionType === 'credit'
+      ? t.senderName || t.transactionPurposeDetail
+      : t.receiverName || t.transactionPurposeDetail;
+
   return {
     id: t.id,
     customer,
@@ -50,7 +54,7 @@ function mapTransaction(t: ApiTransaction): Transaction {
     date: formatDate(t.createdAt),
     amount: formatAmount(t.transactionAmount, t.transactionType),
     status: mapStatus(t.transactionStatus),
-    type: t.transactionType === 'debit' ? 'incoming' : 'outgoing',
+    type: t.transactionType === 'credit' ? 'incoming' : 'outgoing',
   };
 }
 

@@ -27,4 +27,7 @@ public class BusinessRequest {
     @Builder.Default
     @PositiveOrZero(message = "Shortcode loan limit must be zero or positive")
     private BigDecimal shortcodeLoanLimit = BigDecimal.ZERO;
+    private String fastdukaApiKey;
+    private String fastdukaOrgId;
+    private String fastdukaConfigId;
 }

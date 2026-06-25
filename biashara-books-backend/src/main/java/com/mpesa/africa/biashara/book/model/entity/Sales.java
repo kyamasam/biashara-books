@@ -1,5 +1,7 @@
 package com.mpesa.africa.biashara.book.model.entity;
 
+import com.mpesa.africa.biashara.book.model.enums.SalePaymentMethod;
+import com.mpesa.africa.biashara.book.model.enums.SaleStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +29,9 @@ public class Sales {
     private BigDecimal amountPaid;
     private UUID transactionId;
     private UUID userId;
+    private SalePaymentMethod paymentMethod;
+    private SaleStatus saleStatus;
+    private String stkIdempotencyKey;
 
     @CreatedDate
     private LocalDateTime createdAt;

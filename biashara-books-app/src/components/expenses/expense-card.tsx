@@ -22,7 +22,7 @@ type ExpenseCardProps = {
 };
 
 export function ExpenseCard({ expense }: ExpenseCardProps) {
-  const Icon = CATEGORY_ICONS[expense.category];
+  const Icon = CATEGORY_ICONS[expense.category] ?? ReceiptText;
 
   return (
     <View style={styles.card}>

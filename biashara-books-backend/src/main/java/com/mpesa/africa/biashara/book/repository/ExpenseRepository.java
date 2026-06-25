@@ -7,6 +7,8 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Repository
@@ -29,4 +31,10 @@ public interface ExpenseRepository extends ReactiveCrudRepository<Expense, UUID>
 
     @Query("SELECT SUM(expense_amount) FROM expenses WHERE business_id = :businessId")
     Mono<Double> sumExpenseAmountByBusinessId(UUID businessId);
+
+    @Query("SELECT COALESCE(SUM(expense_amount), 0) FROM expenses WHERE business_id = :businessId AND expense_status = 'completed'")
+    Mono<BigDecimal> sumCompletedExpenseAmountByBusinessId(UUID businessId);
+
+    @Query("SELECT COALESCE(SUM(expense_amount), 0) FROM expenses WHERE business_id = :businessId AND expense_status = 'completed' AND created_at BETWEEN :startDate AND :endDate")
+    Mono<BigDecimal> sumCompletedExpenseAmountByBusinessIdAndDateRange(UUID businessId, LocalDateTime startDate, LocalDateTime endDate);
 }

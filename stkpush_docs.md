@@ -149,11 +149,46 @@ Returns the same full transaction object as the initiate response. The key field
 
 ```json
 {
-  "idempotency_key": "550e8400-e29b-41d4-a716-446655440000",
+  "id": 1362,
+  "customer_account_number": "69fb0e628c265bac79db7e0a0261b51a872fe20da1aa645001e49f3d3c6d9f52",
+  "customer_invoice_number": "0c65dcd1ed",
+  "amount": 2,
+  "transaction_identifier": "b'bXBlc2FrZXM2OWZiMGU2MjhjMjY1YmFjNzlkYjdlMGEwMjYxYjUxYTg3MmZlMjBkYTFhYTY0NTAwMWU0OWYzZDNjNmQ5ZjUyMi4wMDE3ODI0MjY1ODUuNjk0Mzgx'",
+  "idempotency_key": "266e5fb2-8d29-4b8c-a367-5d720b55a0ea",
+  "payment_method": {
+    "name": "mpesa",
+    "id": 1,
+    "currency": "Kenya Shillings"
+  },
+  "receiving_account": {
+    "id": 1,
+    "name": "",
+    "account_identifier": "7116791",
+    "organization_name": "Fastduka Software",
+    "payment_method": "mpesa",
+    "payment_method_id": 1,
+    "organization_id": 1,
+    "active": true,
+    "account_type_name": "paybill"
+  },
+  "receiving_organization": {
+    "organization_name": "Fastduka Software",
+    "country": "Kenya",
+    "industry": "Tech",
+    "other_industry": null,
+    "logo": "http://api.fastduka.co.ke/media/Screenshot_2024-12-17_at_10.18.27AM.png",
+    "active": true,
+    "id": 1
+  },
+  "transaction_confirmation_number": "UFQLU8TBMA",
+  "transaction_response_code": "200",
   "transaction_status": "processed",
-  "transaction_confirmation_number": "QAB1234XYZ",
-  "transaction_response_code": "0",
-  ...
+  "transaction_note": "0c65dcd1ed",
+  "receiving_account_id": 1,
+  "retried_next_transaction_id": null,
+  "transaction_response": null,
+  "created_at": "2026-06-25T22:29:45.719924Z",
+  "updated_at": "2026-06-25T22:29:45.726857Z"
 }
 ```
 
