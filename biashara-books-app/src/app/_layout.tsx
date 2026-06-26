@@ -50,6 +50,8 @@ export default function RootLayout() {
             <Stack.Screen name="pin-login" options={{ headerShown: false }} />
             <Stack.Screen name="set-pin" options={{ headerShown: false, title: 'Set PIN' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="expenses" options={{ headerShown: false }} />
+            <Stack.Screen name="expenses/new" options={{ headerShown: false }} />
             <Stack.Screen name="loan/apply" options={{ headerShown: false }} />
             <Stack.Screen name="loan/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="loan/[id]/pay" options={{ headerShown: false }} />
