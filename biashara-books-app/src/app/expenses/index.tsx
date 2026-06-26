@@ -1,7 +1,8 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,8 +21,9 @@ import {
 import { ExpensesPageHeader } from '@/components/expenses/expenses-page-header';
 import { ExpensesSectionHeader } from '@/components/expenses/expenses-section-header';
 import { ExpensesSummaryCard } from '@/components/expenses/expenses-summary-card';
+import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 import { PeriodSelection } from '@/components/ui/month-dropdown';
-import { BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,6 +46,13 @@ type ExpenseRecord = {
   createdAt?: string | null;
   updatedAt?: string | null;
 };
+
+const BOTTOM_APP_BAR_ITEMS: { label: string; icon: AppIconName; href: Href; isActive?: boolean }[] = [
+  { label: 'Home', icon: 'home', href: '/' },
+  { label: 'Pos', icon: 'pos', href: '/sale' },
+  { label: 'Books', icon: 'books', href: '/books', isActive: true },
+  { label: 'Loans', icon: 'loans', href: '/loans' },
+];
 
 function parseApiAmount(amount: number | string) {
   return typeof amount === 'number' ? amount : Number(amount) || 0;
@@ -241,51 +250,82 @@ export default function ExpensesScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentContainerStyle={[
-        styles.contentContainer,
-        {
-          paddingTop: safeAreaInsets.top + Spacing.three,
-          paddingBottom: safeAreaInsets.bottom + Spacing.four,
-          paddingLeft: safeAreaInsets.left + Spacing.three,
-          paddingRight: safeAreaInsets.right + Spacing.three,
-        },
-      ]}
-      showsVerticalScrollIndicator={false}>
-      <View style={styles.page}>
-        <ExpensesPageHeader />
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.contentContainer,
+          {
+            paddingTop: safeAreaInsets.top + Spacing.three,
+            paddingBottom: safeAreaInsets.bottom + BottomTabInset + Spacing.four,
+            paddingLeft: safeAreaInsets.left + Spacing.three,
+            paddingRight: safeAreaInsets.right + Spacing.three,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.page}>
+          <ExpensesPageHeader />
 
-        <ExpensesSectionHeader
-          months={EXPENSE_MONTHS}
-          selected={selectedPeriod}
-          onSelect={setSelectedPeriod}
-          onSearchPress={handleSearchPress}
-        />
+          <ExpensesSectionHeader
+            months={EXPENSE_MONTHS}
+            selected={selectedPeriod}
+            onSelect={setSelectedPeriod}
+            onSearchPress={handleSearchPress}
+          />
 
-        <ExpensesSummaryCard summary={expenseSummary} />
+          <ExpensesSummaryCard summary={expenseSummary} />
 
-        <ExpensesCategoryFilter
-          filters={filterOptions}
-          labels={filterLabels}
-          selected={activeCategory}
-          onSelect={setSelectedCategory}
-        />
+          <ExpensesCategoryFilter
+            filters={filterOptions}
+            labels={filterLabels}
+            selected={activeCategory}
+            onSelect={setSelectedCategory}
+          />
 
-        {isLoadingExpenses ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator color={BrandColors.primary} />
-            <Text style={styles.loadingText}>Loading expenses...</Text>
-          </View>
-        ) : null}
+          {isLoadingExpenses ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator color={BrandColors.primary} />
+              <Text style={styles.loadingText}>Loading expenses...</Text>
+            </View>
+          ) : null}
 
-        <ExpenseList groups={filteredGroups} onNewExpense={handleNewExpense} />
+          <ExpenseList groups={filteredGroups} onNewExpense={handleNewExpense} />
+        </View>
+      </ScrollView>
+
+      <View style={[styles.bottomAppBar, { paddingBottom: safeAreaInsets.bottom }]}>
+        {BOTTOM_APP_BAR_ITEMS.map((item) => (
+          <Pressable
+            key={item.label}
+            accessibilityLabel={item.label}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item.isActive }}
+            onPress={() => router.replace(item.href)}
+            style={({ pressed }) => [styles.bottomAppBarItem, pressed && styles.pressed]}>
+            <AppIcon
+              name={item.icon}
+              size={20}
+              color={item.isActive ? BrandColors.primary : '#9eaba2'}
+              strokeWidth={2.2}
+            />
+            <Text
+              style={[
+                styles.bottomAppBarLabel,
+                { color: item.isActive ? BrandColors.primary : '#9eaba2' },
+              ]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -307,5 +347,39 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  bottomAppBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    minHeight: 60,
+    paddingHorizontal: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 5,
+  },
+  bottomAppBarItem: {
+    flex: 1,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+  },
+  bottomAppBarLabel: {
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.65,
   },
 });
