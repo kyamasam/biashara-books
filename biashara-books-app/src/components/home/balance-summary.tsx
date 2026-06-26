@@ -1,5 +1,14 @@
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { AppIcon } from '@/components/ui/app-icon';
@@ -21,6 +30,39 @@ export function BalanceSummary() {
   const isRefreshingBalance = useUserStore((s) => s.isRefreshingBalance);
   const refreshBalance = useUserStore((s) => s.refreshBalance);
   const business = user?.currentBusiness;
+  const refreshRotation = useSharedValue(0);
+  const balancePulse = useSharedValue(1);
+
+  useEffect(() => {
+    if (isRefreshingBalance) {
+      refreshRotation.value = 0;
+      refreshRotation.value = withRepeat(
+        withTiming(1, { duration: 800, easing: Easing.linear }),
+        -1,
+        false,
+      );
+      balancePulse.value = withRepeat(
+        withSequence(
+          withTiming(0.94, { duration: 420, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 420, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      );
+    } else {
+      refreshRotation.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.ease) });
+      balancePulse.value = withTiming(1, { duration: 160, easing: Easing.out(Easing.ease) });
+    }
+  }, [balancePulse, isRefreshingBalance, refreshRotation]);
+
+  const refreshIconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${refreshRotation.value * 360}deg` }],
+  }));
+
+  const balancePulseStyle = useAnimatedStyle(() => ({
+    opacity: balancePulse.value,
+    transform: [{ scale: balancePulse.value }],
+  }));
 
   const paybillLabel = business
     ? `${business.shortCodeType.charAt(0).toUpperCase() + business.shortCodeType.slice(1)} - ${business.shortCode}`
@@ -43,21 +85,26 @@ export function BalanceSummary() {
   return (
     <View style={styles.summary}>
       <ThemedText themeColor="textSecondary" style={styles.paybill}>
-        {paybillLabel}
+        {paybillLabel} balance
       </ThemedText>
 
       <View style={styles.balanceRow}>
-        <ThemedText style={styles.balance}>{formatKes(business?.shortcodeBalance)}</ThemedText>
+        <Animated.View style={balancePulseStyle}>
+          <ThemedText style={styles.balance}>{formatKes(business?.shortcodeBalance)}</ThemedText>
+        </Animated.View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Refresh balance"
+          accessibilityState={{ busy: isRefreshingBalance, disabled: isRefreshingBalance }}
           disabled={isRefreshingBalance}
           onPress={handleRefreshBalance}
           style={({ pressed }) => [
             styles.refreshButton,
             (pressed || isRefreshingBalance) && styles.refreshButtonPressed,
           ]}>
-          <AppIcon name="refresh" size={18} color="#8E8E93" strokeWidth={2.4} />
+          <Animated.View style={refreshIconStyle}>
+            <AppIcon name="refresh" size={18} color="#8E8E93" strokeWidth={2.4} />
+          </Animated.View>
         </Pressable>
       </View>
 
@@ -69,11 +116,13 @@ export function BalanceSummary() {
           accessibilityRole="button"
           accessibilityLabel="Apply for loan"
           onPress={() => router.push('/loan/apply')}
-          style={({ pressed }) => [styles.applyAction, pressed && styles.applyActionPressed]}>
+          style={[styles.applyAction]}>
           <ThemedText type="linkPrimary" numberOfLines={1} style={styles.applyLink}>
             Apply
           </ThemedText>
-          <AppIcon name="apply" size={11} color="#007aff" strokeWidth={2.2} />
+          <View style={styles.applyIcon}>
+            <AppIcon name="apply" size={11} color="#007aff" strokeWidth={2.2} />
+          </View>
         </Pressable>
       </View>
     </View>
@@ -136,7 +185,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+    flexWrap: 'nowrap',
     gap: 2,
+  },
+  applyIcon: {
+    width: 11,
+    height: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   applyActionPressed: {
     opacity: 0.65,

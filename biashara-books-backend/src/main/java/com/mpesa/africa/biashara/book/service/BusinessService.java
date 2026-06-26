@@ -26,6 +26,7 @@ public class BusinessService {
 
     private final BusinessRepository businessRepository;
     private final UserRepository userRepository;
+    private final BusinessScoreService businessScoreService;
     @Qualifier("fastDukaWebClient")
     private final WebClient fastDukaWebClient;
 
@@ -87,10 +88,16 @@ public class BusinessService {
                             .flatMap(balanceResponse -> {
                                 if (balanceResponse.getAccountBalance() == null) {
                                     log.info("FastDuka returned no account balance for short_code: {}", business.getShortCode());
-                                    return Mono.just(business);
+                                } else {
+                                    business.setShortcodeBalance(balanceResponse.getAccountBalance());
                                 }
-                                business.setShortcodeBalance(balanceResponse.getAccountBalance());
-                                return businessRepository.save(business);
+                                return businessScoreService.calculateScore(userId, 1)
+                                        .doOnNext(score -> business.setShortcodeLoanLimit(score.getLoanLimit()))
+                                        .onErrorResume(e -> {
+                                            log.warn("Could not recalculate loan limit during balance refresh: {}", e.getMessage());
+                                            return Mono.empty();
+                                        })
+                                        .then(businessRepository.save(business));
                             });
                 });
     }

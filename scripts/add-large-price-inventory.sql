@@ -49,24 +49,24 @@ product_data AS (
                 'Premium commercial espresso machine for busy cafes.',
                 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=600&q=80',
                 3.0::float,
-                2850000.00::float,
-                4200000.00::decimal(10,2)
+                6200.00::float,
+                9200.00::decimal(10,2)
             ),
             (
                 'Industrial Generator',
                 'Heavy-duty backup generator for shops and small factories.',
                 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?auto=format&fit=crop&w=600&q=80',
                 2.0::float,
-                5200000.00::float,
-                7500000.00::decimal(10,2)
+                5800.00::float,
+                8500.00::decimal(10,2)
             ),
             (
                 'Walk-In Cold Room',
                 'Large walk-in cold storage unit for perishable stock.',
                 'https://images.unsplash.com/photo-1581091215367-59ab6b1f8891?auto=format&fit=crop&w=600&q=80',
                 1.0::float,
-                8400000.00::float,
-                12000000.00::decimal(10,2)
+                7100.00::float,
+                9800.00::decimal(10,2)
             )
     ) AS item(name, description, photo_url, quantity, unit_purchase_price, unit_sale_price)
 ),

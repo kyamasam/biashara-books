@@ -1,14 +1,16 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { AlertCircle, ArrowUpRight, Check, CheckCircle2, ChevronDown } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageHeader } from '@/components/page-header';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { useBusinessScoreStore } from '@/store/business-score-store';
 import { useUserStore } from '@/store/user-store';
 import { formatKes } from '@/types/loan';
 
@@ -78,8 +80,11 @@ export default function LoanApplyScreen() {
   const router = useRouter();
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
+  const { accessToken } = useAuth();
   const user = useUserStore((s) => s.user);
-  const loanLimit = user?.currentBusiness?.shortcodeLoanLimit ?? 0;
+  const businessScore = useBusinessScoreStore((s) => s.score);
+  const fetchScore = useBusinessScoreStore((s) => s.fetchScore);
+  const loanLimit = businessScore?.loanLimit ?? user?.currentBusiness?.shortcodeLoanLimit ?? 0;
 
   const [selectedOfferId, setSelectedOfferId] = useState(LOAN_OFFERS[0].id);
   const [selectedPeriod, setSelectedPeriod] = useState(REPAYMENT_PERIODS[1]);
@@ -91,14 +96,21 @@ export default function LoanApplyScreen() {
 
   const selectedOffer = LOAN_OFFERS.find((offer) => offer.id === selectedOfferId) ?? LOAN_OFFERS[0];
   const maxLoanAmount = Math.min(loanLimit, selectedOffer.limit);
-  const loanAmountValue = Number(loanAmount);
+  const clampedLoanAmount = formatAmountInput(loanAmount, maxLoanAmount);
+  const loanAmountValue = Number(clampedLoanAmount);
   const monthlyEstimate = useMemo(
     () => estimateMonthlyRepayment(loanAmountValue, selectedOffer.interestRate, selectedPeriod),
     [loanAmountValue, selectedOffer.interestRate, selectedPeriod],
   );
   const applicationReady = loanAmountValue > 0 && loanAmountValue <= maxLoanAmount && Boolean(loanPurpose) && hasConsented;
-  const applicationKey = `${selectedOfferId}:${loanAmount}:${selectedPeriod}:${loanPurpose}:${hasConsented}`;
+  const applicationKey = `${selectedOfferId}:${clampedLoanAmount}:${selectedPeriod}:${loanPurpose}:${hasConsented}`;
   const submitted = submittedKey === applicationKey;
+
+  useEffect(() => {
+    if (!accessToken || businessScore) return;
+
+    void fetchScore(accessToken, 1);
+  }, [accessToken, businessScore, fetchScore]);
 
   return (
     <ScrollView
@@ -194,7 +206,7 @@ export default function LoanApplyScreen() {
             <View style={styles.amountInputWrap}>
               <ThemedText style={styles.amountPrefix}>KES</ThemedText>
               <TextInput
-                value={loanAmount}
+                value={clampedLoanAmount}
                 onChangeText={(value) => setLoanAmount(formatAmountInput(value, maxLoanAmount))}
                 keyboardType="number-pad"
                 placeholder="0"
