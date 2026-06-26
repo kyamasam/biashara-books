@@ -49,6 +49,7 @@ function mapApiProduct(product: ApiProduct, categories: ProductCategory[]): Prod
     imageUrl: product.photoUrl,
     productCategoryId: product.productCategoryId,
     category: category?.name ?? '',
+    stockQuantity: product.totalQuantity,
   };
 }
 
@@ -57,6 +58,7 @@ export function MakeSaleScreen() {
   const router = useRouter();
   const { accessToken } = useAuth();
   const setCurrentSale = useSaleStore((state) => state.setCurrentSale);
+  const completedSaleId = useSaleStore((state) => state.completedSaleId);
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>('All');
@@ -167,6 +169,14 @@ export function MakeSaleScreen() {
     setCurrentSale(checkoutItems);
   }, [checkoutItems, setCurrentSale]);
 
+  useEffect(() => {
+    if (completedSaleId) {
+      setCart({});
+      setSelectedProducts({});
+      setFocusedProductId(null);
+    }
+  }, [completedSaleId]);
+
   const increment = useCallback((product: Product) => {
     setCart((prev) => ({ ...prev, [product.id]: (prev[product.id] ?? 0) + 1 }));
     setSelectedProducts((prev) => ({ ...prev, [product.id]: product }));
@@ -270,7 +280,7 @@ export function MakeSaleScreen() {
           <ProductCard
             product={item}
             quantity={cart[item.id] ?? 0}
-            selected={focusedProductId === item.id}
+            selected={(cart[item.id] ?? 0) > 0}
             width={CARD_WIDTH}
             onIncrement={() => increment(item)}
             onDecrement={() => decrement(item)}

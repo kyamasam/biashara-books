@@ -70,6 +70,7 @@ export type Product = {
   imageUrl: string;
   productCategoryId: string;
   category: ProductCategoryName;
+  stockQuantity: number;
 };
 
 export type CartItem = {

@@ -20,8 +20,14 @@ export function ProductCard({
   onDecrement,
   width,
 }: ProductCardProps) {
+  const isOutOfStock = product.stockQuantity <= 0;
+
   return (
-    <View style={[styles.card, { width }, selected && styles.cardSelected]}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onIncrement}
+      disabled={isOutOfStock}
+      style={[styles.card, { width }, selected && styles.cardSelected]}>
       <Image
         source={{ uri: product.imageUrl }}
         style={[styles.image, { width: width - 2, height: width - 2 }]}
@@ -31,22 +37,31 @@ export function ProductCard({
         <Text style={styles.name} numberOfLines={1}>
           {product.name}
         </Text>
+        <Text style={styles.price}>KES {product.price.toLocaleString()}</Text>
         <View style={styles.stepper}>
           <TouchableOpacity
-            onPress={onDecrement}
-            activeOpacity={0.8}
+            onPress={(e) => { e.stopPropagation?.(); onDecrement(); }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
             style={styles.stepperButton}
             disabled={quantity === 0}>
-            <Minus size={12} color="#FFFFFF" strokeWidth={2.5} />
+            <Minus size={14} color="#374151" strokeWidth={2.5} />
           </TouchableOpacity>
           <Text style={styles.quantity}>{quantity}</Text>
-          <TouchableOpacity onPress={onIncrement} activeOpacity={0.8} style={styles.stepperButton}>
-            <Plus size={12} color="#FFFFFF" strokeWidth={2.5} />
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation?.(); onIncrement(); }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+            style={styles.stepperButton}
+            disabled={isOutOfStock}>
+            <Plus size={14} color="#374151" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.price}>KES {product.price.toLocaleString()}</Text>
+        <Text style={[styles.stock, isOutOfStock && styles.stockOut]}>
+          {isOutOfStock ? 'Out of stock' : `${product.stockQuantity} in stock`}
+        </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -59,7 +74,7 @@ const styles = StyleSheet.create({
     borderColor: '#F0F0F0',
   },
   cardSelected: {
-    borderColor: '#3B82F6',
+    borderColor: '#1A6B52',
     borderWidth: 2,
   },
   image: {
@@ -78,16 +93,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111111',
   },
+  price: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#374151',
+  },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
   },
   stepperButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#22C55E',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -98,9 +120,11 @@ const styles = StyleSheet.create({
     minWidth: 14,
     textAlign: 'center',
   },
-  price: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#374151',
+  stock: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  stockOut: {
+    color: '#EF4444',
   },
 });
