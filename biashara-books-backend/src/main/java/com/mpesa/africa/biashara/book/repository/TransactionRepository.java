@@ -42,9 +42,29 @@ public interface TransactionRepository extends ReactiveCrudRepository<Transactio
     @Query("SELECT * FROM transaction WHERE business_id = $1 ORDER BY created_at DESC LIMIT $2")
     Flux<Transaction> findRecentByBusinessId(UUID businessId, int limit);
 
-    @Query("SELECT COALESCE(SUM(transaction_amount), 0) FROM transaction WHERE business_id = $1 AND transaction_status = 'COMPLETED'")
+    @Query("""
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN transaction_method = 'cash' THEN transaction_amount * 0.25
+                    ELSE transaction_amount
+                END
+            ), 0)
+            FROM transaction
+            WHERE business_id = $1 AND transaction_status = 'success'
+            """)
     Mono<BigDecimal> sumCompletedAmountByBusinessId(UUID businessId);
 
-    @Query("SELECT COALESCE(SUM(transaction_amount), 0) FROM transaction WHERE business_id = $1 AND transaction_status = 'COMPLETED' AND created_at BETWEEN $2 AND $3")
+    @Query("""
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN transaction_method = 'cash' THEN transaction_amount * 0.25
+                    ELSE transaction_amount
+                END
+            ), 0)
+            FROM transaction
+            WHERE business_id = $1
+              AND transaction_status = 'success'
+              AND created_at BETWEEN $2 AND $3
+            """)
     Mono<BigDecimal> sumCompletedAmountByBusinessIdAndDateRange(UUID businessId, LocalDateTime startDate, LocalDateTime endDate);
 }
