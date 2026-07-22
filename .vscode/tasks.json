@@ -1,0 +1,60 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Backend",
+      "type": "shell",
+      "command": "./mvnw spring-boot:run",
+      "options": {
+        "cwd": "${workspaceFolder}/biashara-books-backend"
+      },
+      "group": "build",
+      "presentation": {
+        "label": "Backend",
+        "panel": "dedicated",
+        "reveal": "always",
+        "focus": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Expo App",
+      "type": "shell",
+      "command": "npx expo start",
+      "options": {
+        "cwd": "${workspaceFolder}/biashara-books-app"
+      },
+      "group": "build",
+      "presentation": {
+        "label": "Expo App",
+        "panel": "dedicated",
+        "reveal": "always",
+        "focus": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Ngrok + Update .env",
+      "type": "shell",
+      "command": "${workspaceFolder}/start.sh --ngrok-only",
+      "group": "build",
+      "presentation": {
+        "label": "Ngrok",
+        "panel": "dedicated",
+        "reveal": "always",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start All",
+      "dependsOn": ["Start Backend", "Start Expo App", "Start Ngrok + Update .env"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

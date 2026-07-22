@@ -33,17 +33,33 @@ function parseApiError(data: Record<string, unknown>): ApiError {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   const { headers: optHeaders, ...restOptions } = options;
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(optHeaders ?? {}),
-    },
-    ...restOptions,
+  const mergedHeaders = {
+    'Content-Type': 'application/json',
+    ...(optHeaders ?? {}),
+  };
+
+  console.log(`[API] ${options.method ?? 'GET'} ${url}`);
+  console.log(`[API] Request headers:`, JSON.stringify(mergedHeaders, null, 2));
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers: mergedHeaders, ...restOptions });
+  } catch (err) {
+    console.error(`[API] Network error for ${url}:`, err);
+    throw err;
+  }
+
+  console.log(`[API] Response status: ${response.status} ${response.statusText}`);
+  const corsHeaders = ['access-control-allow-origin', 'access-control-allow-methods', 'access-control-allow-headers'];
+  corsHeaders.forEach((h) => {
+    const val = response.headers.get(h);
+    if (val) console.log(`[API] ${h}: ${val}`);
   });
 
   const data = await response.json();
 
   if (!response.ok) {
+    console.error(`[API] Error response body:`, JSON.stringify(data, null, 2));
     throw parseApiError(data);
   }
 
