@@ -1,10 +1,20 @@
-import { authPost, post } from '@/lib/api';
+import { authGet, authPost, post, resetUnauthorizedState } from '@/lib/api';
 import { deleteStoredToken, getStoredToken, setStoredToken } from '@/lib/token-storage';
+import type { UserProfile } from '@/types/user';
 import { router } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const LAST_LOGIN_PHONE_KEY = 'last_login_phone';
+const LAST_LOGIN_USERNAME_KEY = 'last_login_username';
+const LAST_LOGIN_BUSINESS_KEY = 'last_login_business';
+
+interface LastLoginInfo {
+  phoneNumber: string;
+  username: string;
+  businessName: string;
+}
 
 interface AuthUser {
   id: string;
@@ -38,12 +48,24 @@ interface PasswordTokenResponse {
   refresh: string;
 }
 
+interface RegisterPayload {
+  businessName: string;
+  industry: string;
+  mpesaType: 'paybill' | 'till' | 'pochi' | null;
+  mpesaNumber: string | null;
+  locations: string[];
+  phoneNumber: string;
+  pin: string;
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   accessToken: string | null;
   isLoading: boolean;
+  lastLoginInfo: LastLoginInfo | null;
   loginWithPassword: (phoneNumber: string, password: string) => Promise<void>;
   loginWithPin: (phoneNumber: string, pin: string) => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<void>;
   setPin: (pin: string, confirmPin: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -54,13 +76,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastLoginInfo, setLastLoginInfo] = useState<LastLoginInfo | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const token = await getStoredToken(ACCESS_TOKEN_KEY);
-        if (token) {
-          setAccessToken(token);
+        const [token, phone, username, business] = await Promise.all([
+          getStoredToken(ACCESS_TOKEN_KEY),
+          getStoredToken(LAST_LOGIN_PHONE_KEY),
+          getStoredToken(LAST_LOGIN_USERNAME_KEY),
+          getStoredToken(LAST_LOGIN_BUSINESS_KEY),
+        ]);
+        if (token) setAccessToken(token);
+        if (phone && username && business) {
+          setLastLoginInfo({ phoneNumber: phone, username, businessName: business });
         }
       } finally {
         setIsLoading(false);
@@ -73,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (refresh) {
       await setStoredToken(REFRESH_TOKEN_KEY, refresh);
     }
+    resetUnauthorizedState();
     setAccessToken(access);
   }, []);
 
@@ -102,6 +132,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user_type: 'user',
       });
       await storeTokens(response.data.token);
+      try {
+        const profile = await authGet<{ data: UserProfile }>('/api/users/me', response.data.token);
+        const businessName = profile.data.currentBusiness?.name ?? '';
+        await Promise.all([
+          setStoredToken(LAST_LOGIN_PHONE_KEY, response.data.phoneNumber),
+          setStoredToken(LAST_LOGIN_USERNAME_KEY, response.data.username),
+          setStoredToken(LAST_LOGIN_BUSINESS_KEY, businessName),
+        ]);
+        setLastLoginInfo({ phoneNumber: response.data.phoneNumber, username: response.data.username, businessName });
+      } catch {
+        // non-fatal — login still succeeds without persisting last-login info
+      }
+    },
+    [storeTokens],
+  );
+
+  const register = useCallback(
+    async (payload: RegisterPayload) => {
+      const response = await post<PinLoginResponse>('/api/auth/register', {
+        businessName: payload.businessName,
+        industry: payload.industry,
+        mpesaType: payload.mpesaType,
+        mpesaNumber: payload.mpesaNumber,
+        locations: payload.locations,
+        phoneNumber: payload.phoneNumber,
+        pin: payload.pin,
+      });
+      setUser({
+        id: response.data.userId,
+        phone_number: response.data.phoneNumber,
+        first_name: response.data.username,
+        last_name: null,
+        email: response.data.email,
+        user_type: 'user',
+      });
+      await storeTokens(response.data.token);
+      try {
+        const profile = await authGet<{ data: UserProfile }>('/api/users/me', response.data.token);
+        const businessName = profile.data.currentBusiness?.name ?? payload.businessName;
+        await Promise.all([
+          setStoredToken(LAST_LOGIN_PHONE_KEY, response.data.phoneNumber),
+          setStoredToken(LAST_LOGIN_USERNAME_KEY, response.data.username),
+          setStoredToken(LAST_LOGIN_BUSINESS_KEY, businessName),
+        ]);
+        setLastLoginInfo({ phoneNumber: response.data.phoneNumber, username: response.data.username, businessName });
+      } catch {
+        // non-fatal
+      }
     },
     [storeTokens],
   );
@@ -124,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, accessToken, isLoading, loginWithPassword, loginWithPin, setPin, logout }}
+      value={{ user, accessToken, isLoading, lastLoginInfo, loginWithPassword, loginWithPin, register, setPin, logout }}
     >
       {children}
     </AuthContext.Provider>

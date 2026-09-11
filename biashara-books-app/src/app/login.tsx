@@ -1,9 +1,13 @@
+import { useAuth } from '@/context/auth-context';
 import { router } from 'expo-router';
+import { ChevronLeft } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,7 +24,19 @@ function normalizePhoneNumber(value: string) {
 }
 
 export default function LoginScreen() {
+  const { lastLoginInfo } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
+
+  function handleQuickLogin() {
+    if (!lastLoginInfo) return;
+    router.push({
+      pathname: '/pin-login',
+      params: {
+        phone_number: lastLoginInfo.phoneNumber,
+        business_name: lastLoginInfo.businessName,
+      },
+    });
+  }
 
   function handleContinue() {
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
@@ -39,7 +55,16 @@ export default function LoginScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable style={styles.backButton} onPress={() => router.push('/welcome')}>
+            <ChevronLeft size={24} color="#000" />
+            <Text style={styles.backBtnText}>Back</Text>
+          </Pressable>
+
           <View style={styles.content}>
             <View style={styles.header}>
               <View style={styles.avatar}>
@@ -49,10 +74,22 @@ export default function LoginScreen() {
               <Text style={styles.title}>
                 ENTER PHONE NUMBER
               </Text>
-              <Text style={styles.businessName}>
-                FASTDUKA SOFTWARE
-              </Text>
+
             </View>
+
+            {lastLoginInfo && (
+              <>
+                <Pressable style={styles.prevCard} onPress={handleQuickLogin}>
+                  <View style={styles.prevCardText}>
+                    <Text style={styles.prevCardTitle}>Previously logged in</Text>
+                    <Text style={styles.prevCardBusiness}>{lastLoginInfo.businessName}</Text>
+                    <Text style={styles.prevCardPhone}>+254 {lastLoginInfo.phoneNumber}</Text>
+                  </View>
+                  <Text style={styles.prevCardCta}>CONTINUE →</Text>
+                </Pressable>
+                <Text style={styles.divider}>— or enter a different number —</Text>
+              </>
+            )}
 
             <View style={styles.form}>
               <Text style={styles.label}>PHONE NUMBER</Text>
@@ -82,7 +119,7 @@ export default function LoginScreen() {
               onPress={handleContinue}
             />
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -97,7 +134,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 28,
     paddingBottom: 40,
@@ -136,7 +173,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   form: {
-    marginTop: 44,
+    marginTop: 32,
   },
   label: {
     marginBottom: 12,
@@ -165,4 +202,59 @@ const styles = StyleSheet.create({
   buttonWrap: {
     width: '100%',
   },
+  prevCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 32,
+    marginBottom: 0,
+    backgroundColor: '#F9FAFB',
+  },
+  prevCardText: {
+    gap: 2,
+  },
+  prevCardTitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  prevCardBusiness: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  prevCardPhone: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#374151',
+  },
+  prevCardCta: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3B82F6',
+    letterSpacing: 0.5,
+  },
+  divider: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginVertical: 16,
+  },
+  backBtnText: {
+    fontWeight: '800',
+  },
+  backButton: {
+    paddingTop: 8,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    gap: '8',
+    alignSelf: 'flex-start',
+  },
+
 });

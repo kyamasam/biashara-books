@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ArrowRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,6 +20,7 @@ import { CategoryFilter, FilterCategory } from '@/components/sale/category-filte
 import { CheckoutBar } from '@/components/sale/checkout-bar';
 import { ProductCard } from '@/components/sale/product-card';
 import { SearchBar } from '@/components/sale/search-bar';
+import { PRIMARY_BUTTON_COLOR } from '@/components/ui/button';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { authGet } from '@/lib/api';
@@ -29,6 +34,8 @@ import {
   ProductPage,
   ProductsResponse,
 } from '@/types/product';
+
+type SaleMode = 'products' | 'amount';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMNS = 3;
@@ -59,6 +66,10 @@ export function MakeSaleScreen() {
   const { accessToken } = useAuth();
   const setCurrentSale = useSaleStore((state) => state.setCurrentSale);
   const completedSaleId = useSaleStore((state) => state.completedSaleId);
+
+  const [saleMode, setSaleMode] = useState<SaleMode>('products');
+  const [quickSaleAmount, setQuickSaleAmount] = useState('');
+  const amountInputRef = useRef<TextInput>(null);
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<FilterCategory>('All');
@@ -221,6 +232,27 @@ export function MakeSaleScreen() {
     setFocusedProductId(product.id);
   }, [cart]);
 
+  const handleSaleModeChange = useCallback((mode: SaleMode) => {
+    setSaleMode(mode);
+    setQuickSaleAmount('');
+  }, []);
+
+  const handleQuickSaleCheckout = useCallback(() => {
+    const amount = parseFloat(quickSaleAmount);
+    if (!amount || amount <= 0) return;
+    setCurrentSale([
+      {
+        productId: 'quick-sale',
+        inventoryId: '',
+        name: 'Quick Sale',
+        quantity: 1,
+        unitPrice: amount,
+        lineTotal: amount,
+      },
+    ]);
+    router.push('/checkout');
+  }, [quickSaleAmount, setCurrentSale, router]);
+
   const handleCheckout = useCallback(() => {
     router.push('/checkout');
   }, [router]);
@@ -241,6 +273,69 @@ export function MakeSaleScreen() {
     }
   }, [canGoForward]);
 
+  const tabHeader = (
+    <View style={[styles.header, { paddingTop: insets.top + Spacing.two, paddingHorizontal: H_PADDING }]}>
+      <HomeHeader />
+      <View style={styles.tabSwitcher}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.tab, saleMode === 'products' && styles.tabActive]}
+          onPress={() => handleSaleModeChange('products')}>
+          <Text style={[styles.tabText, saleMode === 'products' && styles.tabTextActive]}>
+            By Product
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={[styles.tab, saleMode === 'amount' && styles.tabActive]}
+          onPress={() => handleSaleModeChange('amount')}>
+          <Text style={[styles.tabText, saleMode === 'amount' && styles.tabTextActive]}>
+            By Amount
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  if (saleMode === 'amount') {
+    const parsedAmount = parseFloat(quickSaleAmount);
+    const isValid = !isNaN(parsedAmount) && parsedAmount > 0;
+
+    return (
+      <KeyboardAvoidingView
+        style={[styles.screen, { backgroundColor: '#FEFDFF' }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {tabHeader}
+        <View style={styles.amountContainer}>
+          <Text style={styles.amountLabel}>Enter sale amount</Text>
+          <View style={styles.amountInputRow}>
+            <Text style={styles.amountCurrency}>KES</Text>
+            <TextInput
+              ref={amountInputRef}
+              style={styles.amountInput}
+              value={quickSaleAmount}
+              onChangeText={setQuickSaleAmount}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#C4C4C4"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={isValid ? handleQuickSaleCheckout : undefined}
+            />
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={!isValid}
+            style={[styles.proceedButton, !isValid && styles.proceedButtonDisabled]}
+            onPress={handleQuickSaleCheckout}>
+            <Text style={styles.proceedText}>Proceed to Checkout</Text>
+            <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.6} />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
     <View style={[styles.screen, { backgroundColor: '#FEFDFF' }]}>
       <FlatList
@@ -259,15 +354,28 @@ export function MakeSaleScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingTop: insets.top + Spacing.two,
             paddingBottom: checkoutBarBottom + 72,
             paddingHorizontal: H_PADDING,
           },
         ]}
         columnWrapperStyle={styles.row}
         ListHeaderComponent={
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: insets.top + Spacing.two }]}>
             <HomeHeader />
+            <View style={styles.tabSwitcher}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.tab, styles.tabActive]}
+                onPress={() => handleSaleModeChange('products')}>
+                <Text style={[styles.tabText, styles.tabTextActive]}>By Product</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.tab}
+                onPress={() => handleSaleModeChange('amount')}>
+                <Text style={styles.tabText}>By Amount</Text>
+              </TouchableOpacity>
+            </View>
             <SearchBar value={search} onChangeText={handleSearchChange} />
             <CategoryFilter
               categories={categories}
@@ -352,6 +460,87 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.two,
     marginBottom: Spacing.two,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F0F2',
+    borderRadius: 10,
+    padding: 3,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  tabTextActive: {
+    color: '#1A6B52',
+  },
+  amountContainer: {
+    flex: 1,
+    paddingHorizontal: H_PADDING,
+    paddingTop: Spacing.five,
+    gap: Spacing.three,
+  },
+  amountLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6A6A6A',
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E2E2',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    gap: Spacing.two,
+  },
+  amountCurrency: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1A6B52',
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#1F1F1F',
+    padding: 0,
+  },
+  proceedButton: {
+    alignItems: 'center',
+    backgroundColor: PRIMARY_BUTTON_COLOR,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 16,
+    marginTop: Spacing.two,
+  },
+  proceedButtonDisabled: {
+    opacity: 0.4,
+  },
+  proceedText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   pagination: {
     alignItems: 'center',

@@ -1,8 +1,24 @@
+import { router } from 'expo-router';
 import { ApiError } from './api-error';
+import { deleteStoredToken } from './token-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 type RequestBody = Record<string, unknown>;
+
+let isHandlingUnauthorized = false;
+
+async function handleUnauthorized() {
+  if (isHandlingUnauthorized) return;
+  isHandlingUnauthorized = true;
+  await deleteStoredToken('access_token');
+  await deleteStoredToken('refresh_token');
+  router.replace('/login');
+}
+
+export function resetUnauthorizedState() {
+  isHandlingUnauthorized = false;
+}
 
 function parseApiError(data: Record<string, unknown>): ApiError {
   if (data?.detail) return new ApiError(String(data.detail));
@@ -55,6 +71,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const val = response.headers.get(h);
     if (val) console.log(`[API] ${h}: ${val}`);
   });
+
+  if (response.status === 401) {
+    console.error(`[API] 401 Unauthorized — logging out`);
+    await handleUnauthorized();
+    throw new Error('Unauthorized');
+  }
 
   const data = await response.json();
 

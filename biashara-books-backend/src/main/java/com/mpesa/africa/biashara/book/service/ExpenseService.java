@@ -131,6 +131,7 @@ public class ExpenseService {
                 .b2bConversationId(b2bConversationId)
                 .userId(userId)
                 .businessId(businessId)
+                .locationId(request.getLocationId())
                 .build();
         return expenseRepository.save(expense);
     }

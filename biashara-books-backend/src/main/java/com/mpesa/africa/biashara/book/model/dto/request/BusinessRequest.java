@@ -1,5 +1,6 @@
 package com.mpesa.africa.biashara.book.model.dto.request;
 
+import com.mpesa.africa.biashara.book.model.enums.PaymentChannel;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -20,7 +21,7 @@ public class BusinessRequest {
     private String name;
     private String shortCode;
     @Builder.Default
-    private String shortCodeType = "paybill";
+    private PaymentChannel shortCodeType = PaymentChannel.paybill;
     @Builder.Default
     @PositiveOrZero(message = "Shortcode balance must be zero or positive")
     private BigDecimal shortcodeBalance = BigDecimal.ZERO;

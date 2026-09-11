@@ -32,6 +32,7 @@ public class Expense {
     private String b2bConversationId;
     private UUID userId;
     private UUID businessId;
+    private UUID locationId;
 
     @CreatedDate
     private LocalDateTime createdAt;

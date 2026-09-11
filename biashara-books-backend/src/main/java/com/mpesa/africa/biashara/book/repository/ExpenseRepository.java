@@ -1,6 +1,7 @@
 package com.mpesa.africa.biashara.book.repository;
 
 import com.mpesa.africa.biashara.book.model.entity.Expense;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
@@ -37,4 +38,8 @@ public interface ExpenseRepository extends ReactiveCrudRepository<Expense, UUID>
 
     @Query("SELECT COALESCE(SUM(expense_amount), 0) FROM expenses WHERE business_id = :businessId AND expense_status = 'completed' AND created_at BETWEEN :startDate AND :endDate")
     Mono<BigDecimal> sumCompletedExpenseAmountByBusinessIdAndDateRange(UUID businessId, LocalDateTime startDate, LocalDateTime endDate);
+
+    @Modifying
+    @Query("UPDATE expenses SET location_id = :locationId WHERE business_id = :businessId AND location_id IS NULL")
+    Mono<Integer> assignDefaultLocationToOrphans(UUID locationId, UUID businessId);
 }

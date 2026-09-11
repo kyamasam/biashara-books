@@ -27,6 +27,7 @@ public class BusinessService {
     private final BusinessRepository businessRepository;
     private final UserRepository userRepository;
     private final BusinessScoreService businessScoreService;
+    private final LocationService locationService;
     @Qualifier("fastDukaWebClient")
     private final WebClient fastDukaWebClient;
 
@@ -45,7 +46,9 @@ public class BusinessService {
                 .fastdukaConfigId(request.getFastdukaConfigId())
                 .build();
 
-        return businessRepository.save(business);
+        return businessRepository.save(business)
+                .flatMap(saved -> locationService.createDefaultLocation(saved.getId())
+                        .thenReturn(saved));
     }
 
     public Mono<Business> getBusinessById(UUID id, UUID userId) {

@@ -38,4 +38,6 @@ public class ExpenseRequest {
     private String remarks;
 
     private String requester;
+
+    private UUID locationId;
 }

@@ -15,10 +15,9 @@ import { BrandColors } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 
 const OPERATOR_ID = 'SM';
-const BUSINESS_NAME = 'FASTDUKA SOFTWARE';
 
 export default function PinLoginScreen() {
-  const { phone_number } = useLocalSearchParams<{ phone_number: string }>();
+  const { phone_number, business_name } = useLocalSearchParams<{ phone_number: string; business_name?: string }>();
   const { loginWithPin } = useAuth();
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,7 +61,7 @@ export default function PinLoginScreen() {
           </View>
 
           <View style={styles.businessRow}>
-            <Text style={styles.businessName}>{BUSINESS_NAME}</Text>
+            <Text style={styles.businessName}>{business_name ?? ''}</Text>
             {!!phone_number && <Text style={styles.phoneNumber}> {phone_number}</Text>}
           </View>
         </View>

@@ -38,4 +38,6 @@ public class InventoryRequest {
     private BigDecimal unitSalePrice;
 
     private Boolean priceIncludesTax;
+
+    private UUID locationId;
 }

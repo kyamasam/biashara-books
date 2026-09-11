@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PinPad } from '@/components/pin-pad';
-import { useAuth } from '@/context/auth-context';
 import { BrandColors } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
 
 type Step = 'enter' | 'confirm';
 
@@ -48,46 +49,53 @@ export default function SetPinScreen() {
   const isEnter = step === 'enter';
 
   return (
-    <View className="flex-1 bg-white justify-center items-center px-6">
-      <View className="items-center mb-10">
-        <Text className="text-2xl font-bold text-black mb-2">
-          {isEnter ? 'Create a PIN' : 'Confirm your PIN'}
-        </Text>
-        <Text className="text-sm text-gray-500 text-center">
-          {isEnter
-            ? 'Choose a 4-digit PIN to quickly access your account'
-            : 'Enter your PIN again to confirm'}
-        </Text>
+    <SafeAreaView className="flex-1 bg-white">
+      <Pressable className="px-4 py-2" onPress={() => router.back()}>
+        <Text className="text-2xl text-gray-600">‹</Text>
+      </Pressable>
+      <View className="flex-1 justify-center items-center px-6">
+        <View className="items-center mb-10">
+          <Text className="text-2xl font-bold text-black mb-2">
+            {isEnter ? 'Create a PIN' : 'Confirm your PIN'}
+          </Text>
+          <Text className="text-sm text-gray-500 text-center">
+            {isEnter
+              ? 'Choose a 4-digit PIN to quickly access your account'
+              : 'Enter your PIN again to confirm'}
+          </Text>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color={BrandColors.primary} />
+        ) : isEnter ? (
+          <PinPad
+            value={firstPin}
+            onChange={setFirstPin}
+            onComplete={handleEnterComplete}
+            variant="login"
+          />
+        ) : (
+          <PinPad
+            value={confirmPin}
+            onChange={setConfirmPin}
+            onComplete={handleConfirmComplete}
+            variant="login"
+          />
+        )}
+
+        {!loading && step === 'confirm' && (
+          <Pressable
+            className="mt-10"
+            onPress={() => {
+              setStep('enter');
+              setFirstPin('');
+              setConfirmPin('');
+            }}
+          >
+            <Text className="text-sm text-gray-500">Start over</Text>
+          </Pressable>
+        )}
       </View>
-
-      {loading ? (
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-      ) : isEnter ? (
-        <PinPad
-          value={firstPin}
-          onChange={setFirstPin}
-          onComplete={handleEnterComplete}
-        />
-      ) : (
-        <PinPad
-          value={confirmPin}
-          onChange={setConfirmPin}
-          onComplete={handleConfirmComplete}
-        />
-      )}
-
-      {!loading && step === 'confirm' && (
-        <Pressable
-          className="mt-10"
-          onPress={() => {
-            setStep('enter');
-            setFirstPin('');
-            setConfirmPin('');
-          }}
-        >
-          <Text className="text-sm text-gray-500">Start over</Text>
-        </Pressable>
-      )}
-    </View>
+    </SafeAreaView>
   );
 }

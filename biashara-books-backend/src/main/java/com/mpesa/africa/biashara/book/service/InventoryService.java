@@ -4,6 +4,7 @@ import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.request.InventoryRequest;
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
 import com.mpesa.africa.biashara.book.repository.InventoryRepository;
+import com.mpesa.africa.biashara.book.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,22 +20,27 @@ import java.util.UUID;
 public class InventoryService {
 
     private final InventoryRepository inventoryRepository;
+    private final UserRepository userRepository;
 
     public Mono<Inventory> createInventory(InventoryRequest request, UUID userId) {
         log.info("Creating inventory for product: {} for user: {}", request.getProductId(), userId);
 
-        Inventory inventory = Inventory.builder()
-                .productId(request.getProductId())
-                .quantity(request.getQuantity())
-                .inventoryType(request.getInventoryType())
-                .unitMetric(request.getUnitMetric())
-                .unitPurchasePrice(request.getUnitPurchasePrice())
-                .unitSalePrice(request.getUnitSalePrice())
-                .priceIncludesTax(request.getPriceIncludesTax() != null ? request.getPriceIncludesTax() : false)
-                .userId(userId)
-                .build();
-        System.out.println(inventory);
-        return inventoryRepository.save(inventory);
+        return resolveBusinessId(userId)
+                .flatMap(businessId -> {
+                    Inventory inventory = Inventory.builder()
+                            .productId(request.getProductId())
+                            .quantity(request.getQuantity())
+                            .inventoryType(request.getInventoryType())
+                            .unitMetric(request.getUnitMetric())
+                            .unitPurchasePrice(request.getUnitPurchasePrice())
+                            .unitSalePrice(request.getUnitSalePrice())
+                            .priceIncludesTax(request.getPriceIncludesTax() != null ? request.getPriceIncludesTax() : false)
+                            .userId(userId)
+                            .businessId(businessId)
+                            .locationId(request.getLocationId())
+                            .build();
+                    return inventoryRepository.save(inventory);
+                });
     }
 
     public Mono<Inventory> getInventoryById(UUID id, UUID userId) {
@@ -44,7 +50,8 @@ public class InventoryService {
     }
 
     public Flux<Inventory> getAllInventory(UUID userId) {
-        return inventoryRepository.findByUserId(userId);
+        return resolveBusinessId(userId)
+                .flatMapMany(inventoryRepository::findByBusinessId);
     }
 
     public Flux<Inventory> getInventoryByProduct(UUID productId, UUID userId) {
@@ -63,6 +70,7 @@ public class InventoryService {
                     existingInventory.setUnitPurchasePrice(request.getUnitPurchasePrice());
                     existingInventory.setUnitSalePrice(request.getUnitSalePrice());
                     existingInventory.setPriceIncludesTax(request.getPriceIncludesTax() != null ? request.getPriceIncludesTax() : false);
+                    existingInventory.setLocationId(request.getLocationId());
                     return inventoryRepository.save(existingInventory);
                 });
     }
@@ -77,5 +85,12 @@ public class InventoryService {
     public Mono<Double> getTotalStockByProduct(UUID productId) {
         return inventoryRepository.sumQuantityByProductId(productId)
                 .defaultIfEmpty(0.0);
+    }
+
+    private Mono<UUID> resolveBusinessId(UUID userId) {
+        return userRepository.findById(userId)
+                .switchIfEmpty(Mono.error(new CustomException("User not found")))
+                .flatMap(user -> Mono.justOrEmpty(user.getCurrentBusinessId())
+                        .switchIfEmpty(Mono.error(new CustomException("No current business set"))));
     }
 }

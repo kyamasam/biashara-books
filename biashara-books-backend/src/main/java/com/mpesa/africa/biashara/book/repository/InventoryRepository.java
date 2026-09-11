@@ -1,6 +1,7 @@
 package com.mpesa.africa.biashara.book.repository;
 
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
@@ -16,6 +17,9 @@ public interface InventoryRepository extends ReactiveCrudRepository<Inventory, U
 
     @Query("SELECT * FROM inventory WHERE user_id = $1")
     Flux<Inventory> findByUserId(UUID userId);
+
+    @Query("SELECT * FROM inventory WHERE business_id = $1")
+    Flux<Inventory> findByBusinessId(UUID businessId);
 
     @Query("SELECT * FROM inventory WHERE product_id = $1")
     Flux<Inventory> findByProductId(UUID productId);
@@ -40,4 +44,8 @@ public interface InventoryRepository extends ReactiveCrudRepository<Inventory, U
 
     @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1 AND created_at BETWEEN $2 AND $3")
     Mono<Double> sumStockValueByUserIdAndDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate);
+
+    @Modifying
+    @Query("UPDATE inventory SET location_id = $1 WHERE business_id = $2 AND location_id IS NULL")
+    Mono<Integer> assignDefaultLocationToOrphans(UUID locationId, UUID businessId);
 }

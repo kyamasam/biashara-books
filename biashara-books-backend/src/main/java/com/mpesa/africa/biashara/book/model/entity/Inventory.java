@@ -31,6 +31,8 @@ public class Inventory {
     private BigDecimal unitSalePrice;
     private Boolean priceIncludesTax;
     private UUID userId;
+    private UUID businessId;
+    private UUID locationId;
 
     @CreatedDate
     private LocalDateTime createdAt;

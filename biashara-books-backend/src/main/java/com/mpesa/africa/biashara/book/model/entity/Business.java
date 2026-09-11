@@ -9,6 +9,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.relational.core.mapping.Table;
 
+import com.mpesa.africa.biashara.book.model.enums.PaymentChannel;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,8 +25,9 @@ public class Business {
     private UUID id;
     private String name;
     private UUID userId;
+    private UUID industryId;
     private String shortCode;
-    private String shortCodeType;
+    private PaymentChannel shortCodeType;
     private BigDecimal shortcodeBalance;
     private BigDecimal shortcodeLoanLimit;
 
