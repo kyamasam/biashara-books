@@ -37,6 +37,7 @@ public class BusinessService {
         Business business = Business.builder()
                 .name(request.getName())
                 .userId(userId)
+                .industryId(request.getIndustryId())
                 .shortCode(request.getShortCode())
                 .shortCodeType(request.getShortCodeType())
                 .shortcodeBalance(defaultAmount(request.getShortcodeBalance()))

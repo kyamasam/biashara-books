@@ -12,6 +12,9 @@ import org.springframework.data.convert.ReadingConverter;
 import org.springframework.data.convert.WritingConverter;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 import org.springframework.data.r2dbc.dialect.DialectResolver;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
+import org.springframework.transaction.ReactiveTransactionManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -19,6 +22,12 @@ import java.util.Map;
 
 @Configuration
 public class R2dbcConfig {
+
+    @Bean
+    public TransactionalOperator transactionalOperator(ConnectionFactory connectionFactory) {
+        ReactiveTransactionManager transactionManager = new R2dbcTransactionManager(connectionFactory);
+        return TransactionalOperator.create(transactionManager);
+    }
 
     @Bean
     R2dbcCustomConversions r2dbcCustomConversions(

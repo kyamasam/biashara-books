@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -19,6 +20,7 @@ public class BusinessRequest {
     @NotBlank(message = "Business name is required")
     @Size(max = 100, message = "Business name must not exceed 100 characters")
     private String name;
+    private UUID industryId;
     private String shortCode;
     @Builder.Default
     private PaymentChannel shortCodeType = PaymentChannel.paybill;
