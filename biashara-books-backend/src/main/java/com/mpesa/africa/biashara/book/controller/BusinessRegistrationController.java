@@ -23,9 +23,9 @@ public class BusinessRegistrationController {
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ApiResponse<BusinessRegistrationResponse>> registerBusiness(
             @Valid @RequestBody BusinessRegistrationRequest request) {
-        log.info("Business registration endpoint called for: {}", request.getUser().getUsername());
+        log.info("Business registration endpoint called for: {}, request: {}", request.getUser().getUsername(), request);
         return businessRegistrationService.register(request)
                 .map(response -> ApiResponse.success(response, "Business registration successful"))
-                .doOnError(error -> log.error("Business registration error: {}", error.getMessage()));
+                .doOnError(error -> log.error("Business registration error: {}", error.getMessage(), error));
     }
 }

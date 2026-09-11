@@ -4,14 +4,16 @@ import { styles } from './styles';
 type Props = {
   phoneNumber: string;
   onPhoneNumberChange: (value: string) => void;
+  email: string;
+  onEmailChange: (value: string) => void;
   onSubmit: () => void;
 };
 
-export function StepPhoneNumber({ phoneNumber, onPhoneNumberChange, onSubmit }: Props) {
+export function StepPhoneNumber({ phoneNumber, onPhoneNumberChange, email, onEmailChange, onSubmit }: Props) {
   return (
     <>
-      <Text style={styles.stepTitle}>Your Phone Number</Text>
-      <Text style={styles.stepSubtitle}>This is what you'll use to log in.</Text>
+      <Text style={styles.stepTitle}>Your Details</Text>
+      <Text style={styles.stepSubtitle}>Enter your phone number to log in. Email is optional.</Text>
 
       <View style={styles.field}>
         <Text style={styles.label}>PHONE NUMBER</Text>
@@ -25,10 +27,25 @@ export function StepPhoneNumber({ phoneNumber, onPhoneNumberChange, onSubmit }: 
             value={phoneNumber}
             onChangeText={onPhoneNumberChange}
             autoComplete="tel"
-            returnKeyType="done"
-            onSubmitEditing={onSubmit}
+            returnKeyType="next"
           />
         </View>
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>EMAIL (OPTIONAL)</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="you@example.com"
+          placeholderTextColor="#B8B8B8"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          value={email}
+          onChangeText={onEmailChange}
+          returnKeyType="done"
+          onSubmitEditing={onSubmit}
+        />
       </View>
     </>
   );

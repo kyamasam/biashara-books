@@ -50,11 +50,12 @@ interface PasswordTokenResponse {
 
 interface RegisterPayload {
   businessName: string;
-  industry: string;
+  industryId: string | null;
   mpesaType: 'paybill' | 'till' | 'pochi' | null;
   mpesaNumber: string | null;
   locations: string[];
   phoneNumber: string;
+  email: string | null;
   pin: string;
 }
 
@@ -150,15 +151,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(
     async (payload: RegisterPayload) => {
-      const response = await post<PinLoginResponse>('/api/auth/register', {
-        businessName: payload.businessName,
-        industry: payload.industry,
-        mpesaType: payload.mpesaType,
-        mpesaNumber: payload.mpesaNumber,
-        locations: payload.locations,
-        phoneNumber: payload.phoneNumber,
-        pin: payload.pin,
-      });
+      const locationsList =
+        payload.locations.length > 0
+          ? payload.locations.map((name, i) => ({ name, isDefault: i === 0 }))
+          : undefined;
+
+      const body: Record<string, unknown> = {
+        user: {
+          username: `user${payload.phoneNumber}`,
+          email: payload.email ?? undefined,
+          phoneCode: '+254',
+          phoneNumber: payload.phoneNumber,
+          pin: payload.pin,
+        },
+        business: {
+          name: payload.businessName,
+          ...(payload.industryId ? { industryId: payload.industryId } : {}),
+          ...(payload.mpesaNumber ? { shortCode: payload.mpesaNumber } : {}),
+          shortCodeType: payload.mpesaType ?? 'cash',
+        },
+        ...(locationsList ? { locations: locationsList } : {}),
+      };
+
+      const response = await post<PinLoginResponse>('/api/auth/register-business', body);
       setUser({
         id: response.data.userId,
         phone_number: response.data.phoneNumber,
@@ -180,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // non-fatal
       }
+      router.replace('/(tabs)');
     },
     [storeTokens],
   );

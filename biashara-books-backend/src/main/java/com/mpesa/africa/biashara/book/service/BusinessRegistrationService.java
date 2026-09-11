@@ -62,9 +62,13 @@ public class BusinessRegistrationService {
     }
 
     private Mono<Void> validateUniqueness(UserRegistrationRequest req) {
+        Mono<Boolean> emailCheck = (req.getEmail() != null && !req.getEmail().isBlank())
+                ? userRepository.existsByEmail(req.getEmail())
+                : Mono.just(false);
+
         return Mono.zip(
                 userRepository.existsByUsername(req.getUsername()),
-                userRepository.existsByEmail(req.getEmail()),
+                emailCheck,
                 userRepository.existsByPhoneNumber(req.getPhoneNumber())
         ).flatMap(tuple -> {
             if (tuple.getT1()) return Mono.error(new CustomException("Username already exists"));

@@ -1,44 +1,63 @@
-import { FlatList, Modal, Pressable, Text, View } from 'react-native';
+import { get } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { styles } from './styles';
 
-const INDUSTRIES = [
-  'Retail / General Shop',
-  'Food & Beverage',
-  'Hardware & Construction',
-  'Salon & Beauty',
-  'Pharmacy & Health',
-  'Agriculture',
-  'Transport & Logistics',
-  'Other',
-];
+interface Industry {
+  id: string;
+  name: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: Industry[];
+}
 
 type Props = {
   visible: boolean;
-  selected: string;
-  onSelect: (industry: string) => void;
+  selectedId: string;
+  onSelect: (industry: Industry) => void;
   onClose: () => void;
 };
 
-export function IndustryPickerModal({ visible, selected, onSelect, onClose }: Props) {
+export function IndustryPickerModal({ visible, selectedId, onSelect, onClose }: Props) {
+  const [industries, setIndustries] = useState<Industry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible || industries.length > 0) return;
+    setLoading(true);
+    get<ApiResponse>('/api/public/industries')
+      .then((res) => setIndustries(res.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [visible]);
+
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <Pressable style={styles.modalBackdrop} onPress={onClose} />
       <View style={styles.modalSheet}>
         <View style={styles.modalHandle} />
         <Text style={styles.modalTitle}>Select Industry</Text>
-        <FlatList
-          data={INDUSTRIES}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <Pressable
-              style={[styles.modalItem, selected === item && styles.modalItemSelected]}
-              onPress={() => onSelect(item)}
-            >
-              <Text style={[styles.modalItemText, selected === item && styles.modalItemTextSelected]}>{item}</Text>
-              {selected === item && <Text style={styles.checkmark}>✓</Text>}
-            </Pressable>
-          )}
-        />
+        {loading ? (
+          <ActivityIndicator style={styles.spinner} />
+        ) : (
+          <FlatList
+            data={industries}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.modalItem, selectedId === item.id && styles.modalItemSelected]}
+                onPress={() => onSelect(item)}
+              >
+                <Text style={[styles.modalItemText, selectedId === item.id && styles.modalItemTextSelected]}>
+                  {item.name}
+                </Text>
+                {selectedId === item.id && <Text style={styles.checkmark}>✓</Text>}
+              </Pressable>
+            )}
+          />
+        )}
       </View>
     </Modal>
   );

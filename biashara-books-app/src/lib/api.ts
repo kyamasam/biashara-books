@@ -56,6 +56,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   console.log(`[API] ${options.method ?? 'GET'} ${url}`);
   console.log(`[API] Request headers:`, JSON.stringify(mergedHeaders, null, 2));
+  if (restOptions.body) {
+    try {
+      console.log(`[API] Request body:`, JSON.stringify(JSON.parse(restOptions.body as string), null, 2));
+    } catch {
+      console.log(`[API] Request body (raw):`, restOptions.body);
+    }
+  }
 
   let response: Response;
   try {
@@ -86,6 +93,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   return data as T;
+}
+
+export function get<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'GET' });
 }
 
 export function post<T>(path: string, body: RequestBody): Promise<T> {

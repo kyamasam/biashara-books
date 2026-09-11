@@ -26,6 +26,11 @@ import {
 import type { ScrollView as ScrollViewType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+interface Industry {
+  id: string;
+  name: string;
+}
+
 const PHONE_PATTERN = /^\d{9,10}$/;
 
 function normalizePhone(value: string) {
@@ -37,7 +42,7 @@ export default function RegisterScreen() {
 
   // step 1 — business details
   const [businessName, setBusinessName] = useState('');
-  const [industry, setIndustry] = useState('');
+  const [industry, setIndustry] = useState<Industry | null>(null);
   const [showIndustryPicker, setShowIndustryPicker] = useState(false);
 
   // step 2 — M-PESA setup
@@ -50,8 +55,9 @@ export default function RegisterScreen() {
   const locationInputRefs = useRef<(TextInput | null)[]>([]);
   const scrollViewRef = useRef<ScrollViewType>(null);
 
-  // step 4 — phone number
+  // step 4 — phone number + email
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
 
   // step 5 — set PIN
   const [pinStep, setPinStep] = useState<PinStep>('enter');
@@ -111,7 +117,6 @@ export default function RegisterScreen() {
     });
   }
 
-
   function updateLocation(index: number, value: string) {
     setLocations((prev) => prev.map((l, i) => (i === index ? value : l)));
   }
@@ -161,11 +166,12 @@ export default function RegisterScreen() {
     try {
       await register({
         businessName: businessName.trim(),
-        industry,
+        industryId: industry?.id ?? null,
         mpesaType,
         mpesaNumber: mpesaNumber.trim() || null,
         locations: hasMultipleLocations ? locations.filter((l) => l.trim()) : [],
         phoneNumber: normalizePhone(phoneNumber),
+        email: email.trim() || null,
         pin,
       });
     } catch (err: unknown) {
@@ -220,7 +226,7 @@ export default function RegisterScreen() {
                   <StepBusinessDetails
                     businessName={businessName}
                     onBusinessNameChange={setBusinessName}
-                    industry={industry}
+                    industry={industry?.name ?? ''}
                     onOpenIndustryPicker={() => setShowIndustryPicker(true)}
                   />
                 )}
@@ -250,6 +256,8 @@ export default function RegisterScreen() {
                   <StepPhoneNumber
                     phoneNumber={phoneNumber}
                     onPhoneNumberChange={setPhoneNumber}
+                    email={email}
+                    onEmailChange={setEmail}
                     onSubmit={handleStep4Next}
                   />
                 )}
@@ -287,7 +295,7 @@ export default function RegisterScreen() {
 
       <IndustryPickerModal
         visible={showIndustryPicker}
-        selected={industry}
+        selectedId={industry?.id ?? ''}
         onSelect={(item) => {
           setIndustry(item);
           setShowIndustryPicker(false);
