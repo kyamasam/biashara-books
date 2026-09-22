@@ -3,6 +3,7 @@ package com.mpesa.africa.biashara.book.service;
 import com.mpesa.africa.biashara.book.exception.CustomException;
 import com.mpesa.africa.biashara.book.model.dto.request.InventoryRequest;
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
+import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
 import com.mpesa.africa.biashara.book.repository.InventoryRepository;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
 import jakarta.validation.Valid;
@@ -25,11 +26,17 @@ public class InventoryService {
     public Mono<Inventory> createInventory(InventoryRequest request, UUID userId) {
         log.info("Creating inventory for product: {} for user: {}", request.getProductId(), userId);
 
+        boolean isPhysical = request.getInventoryCategory() == InventoryCategory.physical;
+        if (isPhysical && request.getQuantity() == null) {
+            return Mono.error(new CustomException("Quantity is required for physical inventory"));
+        }
+
         return resolveBusinessId(userId)
                 .flatMap(businessId -> {
                     Inventory inventory = Inventory.builder()
                             .productId(request.getProductId())
-                            .quantity(request.getQuantity())
+                            .quantity(isPhysical ? request.getQuantity() : null)
+                            .inventoryCategory(request.getInventoryCategory())
                             .inventoryType(request.getInventoryType())
                             .unitMetric(request.getUnitMetric())
                             .unitPurchasePrice(request.getUnitPurchasePrice())
@@ -59,12 +66,18 @@ public class InventoryService {
     }
 
     public Mono<Inventory> updateInventory(UUID id, @Valid InventoryRequest request, UUID userId) {
+        boolean isPhysical = request.getInventoryCategory() == InventoryCategory.physical;
+        if (isPhysical && request.getQuantity() == null) {
+            return Mono.error(new CustomException("Quantity is required for physical inventory"));
+        }
+
         return inventoryRepository.findById(id)
                 .filter(inventory -> inventory.getUserId().equals(userId))
                 .switchIfEmpty(Mono.error(new CustomException("Inventory not found or access denied")))
                 .flatMap(existingInventory -> {
                     existingInventory.setProductId(request.getProductId());
-                    existingInventory.setQuantity(request.getQuantity());
+                    existingInventory.setInventoryCategory(request.getInventoryCategory());
+                    existingInventory.setQuantity(isPhysical ? request.getQuantity() : null);
                     existingInventory.setInventoryType(request.getInventoryType());
                     existingInventory.setUnitMetric(request.getUnitMetric());
                     existingInventory.setUnitPurchasePrice(request.getUnitPurchasePrice());

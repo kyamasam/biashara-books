@@ -13,7 +13,7 @@ type CategoryFilterProps = {
 export { FilterCategory };
 
 export function CategoryFilter({ categories, selected, onSelect }: CategoryFilterProps) {
-  const filterCategories: FilterCategory[] = ['All', ...categories.map((category) => category.name)];
+  const filterCategories: FilterCategory[] = ['All', ...categories.map((c) => c.name).filter((n): n is string => Boolean(n))];
 
   return (
     <ScrollView

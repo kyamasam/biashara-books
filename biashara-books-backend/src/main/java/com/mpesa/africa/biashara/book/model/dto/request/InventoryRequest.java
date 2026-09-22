@@ -1,5 +1,6 @@
 package com.mpesa.africa.biashara.book.model.dto.request;
 
+import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
 import com.mpesa.africa.biashara.book.model.enums.InventoryTypes;
 import com.mpesa.africa.biashara.book.model.enums.UnitMetrics;
 import jakarta.validation.constraints.NotNull;
@@ -20,12 +21,14 @@ public class InventoryRequest {
     @NotNull(message = "Product ID is required")
     private UUID productId;
 
-    @NotNull(message = "Quantity is required")
-    @Positive(message = "Quantity must be positive")
-    private Double quantity;
+    @NotNull(message = "Inventory category is required")
+    private InventoryCategory inventoryCategory;
 
     @NotNull(message = "Inventory type is required")
     private InventoryTypes inventoryType;
+
+    @Positive(message = "Quantity must be positive")
+    private Double quantity;
 
     private UnitMetrics unitMetric;
 

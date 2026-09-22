@@ -1,0 +1,1 @@
+ALTER TABLE inventory ALTER COLUMN quantity DROP NOT NULL;

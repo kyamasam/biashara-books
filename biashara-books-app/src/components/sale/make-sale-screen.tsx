@@ -88,7 +88,7 @@ export function MakeSaleScreen() {
     try {
       const response = await authGet<ProductCategoryResponse>('/api/categories', accessToken);
       if (shouldUpdate()) {
-        setCategories(response.data);
+        setCategories(response.data ?? []);
       }
     } catch {
       if (shouldUpdate()) {

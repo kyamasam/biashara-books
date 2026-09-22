@@ -11,9 +11,15 @@ let isHandlingUnauthorized = false;
 async function handleUnauthorized() {
   if (isHandlingUnauthorized) return;
   isHandlingUnauthorized = true;
-  await deleteStoredToken('access_token');
-  await deleteStoredToken('refresh_token');
-  router.replace('/login');
+
+  try {
+    await deleteStoredToken('access_token');
+    await deleteStoredToken('refresh_token');
+    router.replace('/login');
+  } finally {
+    // Keep isHandlingUnauthorized true while on the login screen
+    // so subsequent failing requests during unmount don't trigger extra redirects.
+  }
 }
 
 export function resetUnauthorizedState() {
@@ -85,14 +91,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error('Unauthorized');
   }
 
-  const data = await response.json();
+  const text = await response.text();
+  console.log(`[API] Response body (${response.status}):`, text);
 
   if (!response.ok) {
-    console.error(`[API] Error response body:`, JSON.stringify(data, null, 2));
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new ApiError(`Request failed with status ${response.status}`);
+    }
     throw parseApiError(data);
   }
 
-  return data as T;
+  return JSON.parse(text) as T;
 }
 
 export function get<T>(path: string): Promise<T> {

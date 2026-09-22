@@ -4,6 +4,7 @@ import com.mpesa.africa.biashara.book.model.entity.Business;
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
 import com.mpesa.africa.biashara.book.model.entity.Product;
 import com.mpesa.africa.biashara.book.model.entity.ProductCategory;
+import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
 import com.mpesa.africa.biashara.book.model.enums.InventoryTypes;
 import com.mpesa.africa.biashara.book.repository.BusinessRepository;
 import com.mpesa.africa.biashara.book.repository.InventoryRepository;
@@ -233,6 +234,7 @@ public class ClothingStoreDataSeeder implements ApplicationRunner {
 
                     return inventoryRepository.save(Inventory.builder()
                                     .productId(product.getId())
+                                    .inventoryCategory(InventoryCategory.physical)
                                     .quantity(seedProduct.quantity())
                                     .inventoryType(InventoryTypes.count)
                                     .unitPurchasePrice(seedProduct.unitPurchasePrice())

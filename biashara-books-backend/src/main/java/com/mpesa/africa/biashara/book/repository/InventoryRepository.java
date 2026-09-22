@@ -27,22 +27,22 @@ public interface InventoryRepository extends ReactiveCrudRepository<Inventory, U
     @Query("SELECT * FROM inventory WHERE user_id = $1 AND product_id = $2")
     Flux<Inventory> findByUserIdAndProductId(UUID userId, UUID productId);
 
-    @Query("SELECT SUM(quantity) FROM inventory WHERE product_id = $1")
+    @Query("SELECT SUM(quantity) FROM inventory WHERE product_id = $1 AND inventory_category = 'physical'")
     Mono<Double> sumQuantityByProductId(UUID productId);
 
     @Query("SELECT MAX(unit_sale_price) FROM inventory WHERE product_id = $1")
     Mono<BigDecimal> maxSalePriceByProductId(UUID productId);
 
-    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1")
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1 AND inventory_category = 'physical'")
     Mono<Double> sumQuantityByUserId(UUID userId);
 
-    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1 AND created_at BETWEEN $2 AND $3")
+    @Query("SELECT COALESCE(SUM(quantity), 0) FROM inventory WHERE user_id = $1 AND inventory_category = 'physical' AND created_at BETWEEN $2 AND $3")
     Mono<Double> sumQuantityByUserIdAndDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate);
 
-    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1")
+    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1 AND inventory_category = 'physical'")
     Mono<Double> sumStockValueByUserId(UUID userId);
 
-    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1 AND created_at BETWEEN $2 AND $3")
+    @Query("SELECT COALESCE(SUM(quantity * unit_purchase_price), 0) FROM inventory WHERE user_id = $1 AND inventory_category = 'physical' AND created_at BETWEEN $2 AND $3")
     Mono<Double> sumStockValueByUserIdAndDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate);
 
     @Modifying

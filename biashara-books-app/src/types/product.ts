@@ -79,3 +79,24 @@ export type CartItem = {
 };
 
 export type CartMap = Record<string, number>;
+
+export type InventoryCategory = 'physical' | 'service';
+export type InventoryType = 'unit' | 'count';
+
+export type CreateProductRequest = {
+  name: string;
+  description?: string;
+  photoUrl?: string;
+  productCategoryId?: string;
+};
+
+export type CreateInventoryRequest = {
+  productId: string;
+  inventoryCategory: InventoryCategory;
+  inventoryType: InventoryType;
+  quantity?: number;
+  unitMetric?: string;
+  unitPurchasePrice: number;
+  unitSalePrice: number;
+  priceIncludesTax: boolean;
+};
