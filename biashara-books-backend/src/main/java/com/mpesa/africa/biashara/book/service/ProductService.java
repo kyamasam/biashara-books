@@ -1,11 +1,13 @@
 package com.mpesa.africa.biashara.book.service;
 
 import com.mpesa.africa.biashara.book.exception.CustomException;
+import com.mpesa.africa.biashara.book.model.dto.request.ProductInventoryDetails;
 import com.mpesa.africa.biashara.book.model.dto.request.ProductRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.PageResponse;
 import com.mpesa.africa.biashara.book.model.dto.response.ProductResponse;
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
 import com.mpesa.africa.biashara.book.model.entity.Product;
+import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
 import com.mpesa.africa.biashara.book.repository.InventoryRepository;
 import com.mpesa.africa.biashara.book.repository.ProductRepository;
 import com.mpesa.africa.biashara.book.repository.UserRepository;
@@ -28,7 +30,7 @@ public class ProductService {
     private final InventoryRepository inventoryRepository;
     private final UserRepository userRepository;
 
-    public Mono<Product> createProduct(ProductRequest request, UUID userId) {
+    public Mono<ProductResponse> createProduct(ProductRequest request, UUID userId) {
         log.info("Creating product: {} for user: {}", request.getName(), userId);
 
         return resolveBusinessId(userId)
@@ -44,7 +46,30 @@ public class ProductService {
                             .userId(userId)
                             .businessId(businessId)
                             .build();
-                    return productRepository.save(product);
+                    return productRepository.save(product)
+                            .flatMap(savedProduct -> {
+                                ProductInventoryDetails inv = request.getInventoryDetails();
+                                if (inv == null) {
+                                    return Mono.just(savedProduct);
+                                }
+                                boolean isPhysical = savedProduct.getInventoryCategory() == InventoryCategory.physical;
+                                if (isPhysical && inv.getQuantity() == null) {
+                                    return Mono.error(new CustomException("Quantity is required for physical inventory"));
+                                }
+                                Inventory inventory = Inventory.builder()
+                                        .productId(savedProduct.getId())
+                                        .quantity(isPhysical ? inv.getQuantity() : null)
+                                        .unitPurchasePrice(inv.getUnitPurchasePrice())
+                                        .unitSalePrice(inv.getUnitSalePrice())
+                                        .priceIncludesTax(inv.getPriceIncludesTax() != null ? inv.getPriceIncludesTax() : false)
+                                        .userId(userId)
+                                        .businessId(businessId)
+                                        .locationId(inv.getLocationId())
+                                        .build();
+                                return inventoryRepository.save(inventory)
+                                        .thenReturn(savedProduct);
+                            })
+                            .flatMap(savedProduct -> enrichWithInventory(savedProduct, userId));
                 });
     }
 

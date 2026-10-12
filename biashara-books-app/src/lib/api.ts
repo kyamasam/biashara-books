@@ -129,6 +129,10 @@ export function authPut<T>(path: string, body: RequestBody): Promise<T> {
   return request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
 }
 
+export function authDelete<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' });
+}
+
 export function authUpload<T>(path: string, formData: FormData): Promise<T> {
   return request<T>(path, { method: 'POST', body: formData });
 }

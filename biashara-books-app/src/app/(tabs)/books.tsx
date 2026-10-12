@@ -8,6 +8,7 @@ import {
   Bluetooth,
   ChevronDown,
   ChartNoAxesCombined,
+  Package,
   ReceiptText,
   ShoppingBag,
   ShoppingCart,
@@ -126,10 +127,11 @@ const formatPerformanceTitle = (selectedPreset: string, dateRange: DateRange) =>
 };
 
 const QUICK_ACTIONS: QuickAction[] = [
+  { label: 'Stock', icon: Archive, href: '/inventory' },
+  { label: 'Products', icon: Package, href: '/products' },
   { label: 'Make Sale', icon: ReceiptText },
   { label: 'Purchases', icon: ShoppingBag },
   { label: 'Expenses', icon: WalletCards, href: '/expenses' },
-  { label: 'Stock', icon: Archive, href: '/inventory' },
 ];
 
 const formatMoney = (value = 0) =>

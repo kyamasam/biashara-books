@@ -44,7 +44,7 @@ public class ProductController {
     )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<ApiResponse<Product>> createProduct(@Valid @RequestBody ProductRequest request) {
+    public Mono<ApiResponse<ProductResponse>> createProduct(@Valid @RequestBody ProductRequest request) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Creating product for user: {}", userId);
             return productService.createProduct(request, userId);

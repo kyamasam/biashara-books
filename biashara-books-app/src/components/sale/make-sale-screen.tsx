@@ -377,7 +377,11 @@ export function MakeSaleScreen() {
                 <Text style={styles.tabText}>By Amount</Text>
               </TouchableOpacity>
             </View>
-            <SearchBar value={search} onChangeText={handleSearchChange} />
+            <SearchBar
+              value={search}
+              onChangeText={handleSearchChange}
+              onAddPress={() => router.push('/products/new')}
+            />
             <CategoryFilter
               categories={categories}
               selected={activeCategory}

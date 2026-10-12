@@ -25,11 +25,10 @@ import { BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { useTheme } from '@/hooks/use-theme';
-import { authGet, authPost } from '@/lib/api';
+import { authGet } from '@/lib/api';
 import { ApiError } from '@/lib/api-error';
 import { useProductStore } from '@/store/product-store';
 import type {
-  CreateInventoryRequest,
   InventoryCategory,
   InventoryType,
   ProductCategory,
@@ -94,6 +93,9 @@ export default function NewProductScreen() {
   const [inventoryCategory, setInventoryCategory] = useState<InventoryCategory>('physical');
   const [inventoryType, setInventoryType] = useState<InventoryType>('count');
   const [unitMetric, setUnitMetric] = useState<UnitMetric | ''>('');
+
+  // Inventory toggle (off by default; hidden for services)
+  const [addInventory, setAddInventory] = useState(false);
 
   // Stock & pricing
   const [quantity, setQuantity] = useState('');
@@ -160,10 +162,12 @@ export default function NewProductScreen() {
 
   function validate(): string | null {
     if (!name.trim()) return 'Enter a product name.';
-    if (parsePrice(purchasePrice) <= 0) return 'Enter a valid purchase price.';
-    if (parsePrice(salePrice) <= 0) return 'Enter a valid sale price.';
-    if (isPhysical && parsePrice(quantity) <= 0) return 'Enter the quantity in stock.';
     if (isPhysical && isUnit && !unitMetric) return 'Choose a unit metric (kg or l).';
+    if (addInventory) {
+      if (parsePrice(purchasePrice) <= 0) return 'Enter a valid purchase price.';
+      if (parsePrice(salePrice) <= 0) return 'Enter a valid sale price.';
+      if (isPhysical && parsePrice(quantity) <= 0) return 'Enter the quantity in stock.';
+    }
     return null;
   }
 
@@ -173,7 +177,7 @@ export default function NewProductScreen() {
     if (err) { showError(err); return; }
 
     try {
-      const { id: productId } = await createProduct(
+      await createProduct(
         {
           name: name.trim(),
           ...(description.trim() && { description: description.trim() }),
@@ -182,22 +186,18 @@ export default function NewProductScreen() {
           inventoryType,
           ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
           ...(isPhysical && isUnit && unitMetric ? { unitMetric } : {}),
+          ...(addInventory && {
+            inventoryDetails: {
+              unitPurchasePrice: parsePrice(purchasePrice),
+              unitSalePrice: parsePrice(salePrice),
+              priceIncludesTax,
+              ...(isPhysical ? { quantity: parsePrice(quantity) } : {}),
+            },
+          }),
         },
         uploadedPhotoUrl ? undefined : (imageUri ?? undefined),
       );
 
-      const inventoryPayload: CreateInventoryRequest = {
-        productId,
-        inventoryCategory,
-        inventoryType,
-        unitPurchasePrice: parsePrice(purchasePrice),
-        unitSalePrice: parsePrice(salePrice),
-        priceIncludesTax,
-        ...(isPhysical && { quantity: parsePrice(quantity) }),
-        ...(isPhysical && isUnit && unitMetric ? { unitMetric } : {}),
-      };
-
-      await authPost('/api/inventory', inventoryPayload);
       showSuccess('Product created.');
       router.back();
     } catch (error) {
@@ -301,6 +301,7 @@ export default function NewProductScreen() {
                   setInventoryCategory('service');
                   setQuantity('');
                   setUnitMetric('');
+                  setAddInventory(false);
                 }}
               />
             </View>
@@ -356,62 +357,83 @@ export default function NewProductScreen() {
             onClose={() => setShowUnitPicker(false)}
           />
 
-          {/* ─── Stock ─── */}
+          {/* ─── Add Inventory toggle (physical only) ─── */}
           {isPhysical && (
-            <>
-              <SectionLabel>Opening Stock</SectionLabel>
-              <FormInput
-                label={`Quantity in Stock${isUnit && unitMetric ? ` (${unitMetric})` : ''} *`}
-                value={quantity}
-                onChangeText={(v) => setQuantity(formatNumberInput(v))}
-                placeholder="0"
-                keyboardType="numeric"
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleBody}>
+                <Text style={styles.label}>Add inventory now</Text>
+                <ThemedText themeColor="textSecondary" style={styles.hint}>
+                  Set opening stock and pricing for this product.
+                </ThemedText>
+              </View>
+              <Switch
+                value={addInventory}
+                onValueChange={setAddInventory}
+                trackColor={{ false: '#D8DDE0', true: BrandColors.primary }}
+                thumbColor="#FFFFFF"
               />
-            </>
+            </View>
           )}
 
-          {/* ─── Pricing ─── */}
-          <SectionLabel>Pricing</SectionLabel>
+          {/* ─── Stock & Pricing (only when inventory toggle is on) ─── */}
+          {addInventory && (
+            <>
+              {isPhysical && (
+                <>
+                  <SectionLabel>Opening Stock</SectionLabel>
+                  <FormInput
+                    label={`Quantity in Stock${isUnit && unitMetric ? ` (${unitMetric})` : ''} *`}
+                    value={quantity}
+                    onChangeText={(v) => setQuantity(formatNumberInput(v))}
+                    placeholder="0"
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
 
-          <View style={styles.priceRow}>
-            <View style={[styles.field, styles.flex1]}>
-              <Text style={styles.label}>Purchase Price (KES) *</Text>
-              <TextInput
-                value={purchasePrice}
-                onChangeText={(v) => setPurchasePrice(formatNumberInput(v))}
-                placeholder="0"
-                keyboardType="numeric"
-                placeholderTextColor={Colors.light.textSecondary}
-                style={styles.input}
-              />
-            </View>
-            <View style={[styles.field, styles.flex1]}>
-              <Text style={styles.label}>Sale Price (KES) *</Text>
-              <TextInput
-                value={salePrice}
-                onChangeText={(v) => setSalePrice(formatNumberInput(v))}
-                placeholder="0"
-                keyboardType="numeric"
-                placeholderTextColor={Colors.light.textSecondary}
-                style={styles.input}
-              />
-            </View>
-          </View>
+              <SectionLabel>Pricing</SectionLabel>
 
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleBody}>
-              <Text style={styles.label}>Price includes tax</Text>
-              <ThemedText themeColor="textSecondary" style={styles.hint}>
-                Turn on if the sale price already includes VAT.
-              </ThemedText>
-            </View>
-            <Switch
-              value={priceIncludesTax}
-              onValueChange={setPriceIncludesTax}
-              trackColor={{ false: '#D8DDE0', true: BrandColors.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
+              <View style={styles.priceRow}>
+                <View style={[styles.field, styles.flex1]}>
+                  <Text style={styles.label}>Purchase Price (KES) *</Text>
+                  <TextInput
+                    value={purchasePrice}
+                    onChangeText={(v) => setPurchasePrice(formatNumberInput(v))}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={[styles.field, styles.flex1]}>
+                  <Text style={styles.label}>Sale Price (KES) *</Text>
+                  <TextInput
+                    value={salePrice}
+                    onChangeText={(v) => setSalePrice(formatNumberInput(v))}
+                    placeholder="0"
+                    keyboardType="numeric"
+                    placeholderTextColor={Colors.light.textSecondary}
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleBody}>
+                  <Text style={styles.label}>Price includes tax</Text>
+                  <ThemedText themeColor="textSecondary" style={styles.hint}>
+                    Turn on if the sale price already includes VAT.
+                  </ThemedText>
+                </View>
+                <Switch
+                  value={priceIncludesTax}
+                  onValueChange={setPriceIncludesTax}
+                  trackColor={{ false: '#D8DDE0', true: BrandColors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+            </>
+          )}
 
           <AppButton
             label={

@@ -53,4 +53,7 @@ public class ProductRequest {
         example = "kg"
     )
     private UnitMetrics unitMetric;
+
+    @Schema(description = "Optional initial inventory entry to create alongside the product.")
+    private ProductInventoryDetails inventoryDetails;
 }

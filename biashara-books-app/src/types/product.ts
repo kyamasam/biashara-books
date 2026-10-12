@@ -137,6 +137,14 @@ export type ProductInventoryResponse = {
   inStock: boolean;
 };
 
+export type InventoryDetails = {
+  quantity?: number;
+  unitPurchasePrice: number;
+  unitSalePrice: number;
+  priceIncludesTax: boolean;
+  locationId?: string;
+};
+
 export type CreateProductRequest = {
   name: string;
   description?: string;
@@ -145,6 +153,7 @@ export type CreateProductRequest = {
   inventoryCategory: InventoryCategory;
   inventoryType: InventoryType;
   unitMetric?: UnitMetric;
+  inventoryDetails?: InventoryDetails;
 };
 
 export type UploadPhotoResponse = {
@@ -153,6 +162,29 @@ export type UploadPhotoResponse = {
   data: { url: string };
   timestamp: string;
   path: null;
+};
+
+export type ProductEntity = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  description: string | null;
+  productCategoryId: string | null;
+  inventoryType: InventoryType;
+  inventoryCategory: InventoryCategory;
+  unitMetric: UnitMetric | null;
+  userId: string;
+  businessId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductEntityResponse = {
+  success: boolean;
+  message: string;
+  data: ProductEntity;
+  timestamp: string;
+  path: string | null;
 };
 
 export type CreateInventoryRequest = {
