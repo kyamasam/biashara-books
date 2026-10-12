@@ -8,7 +8,7 @@ interface TransactionState {
   groups: TransactionGroup[];
   isLoading: boolean;
   error: string | null;
-  fetchTransactions: (token: string) => Promise<void>;
+  fetchTransactions: () => Promise<void>;
   clearTransactions: () => void;
 }
 
@@ -77,10 +77,10 @@ export const useTransactionStore = create<TransactionState>((set) => ({
   groups: [],
   isLoading: false,
   error: null,
-  fetchTransactions: async (token) => {
+  fetchTransactions: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await authGet<{ data: TransactionPage }>('/api/transactions?page=1&size=20', token);
+      const res = await authGet<{ data: TransactionPage }>('/api/transactions?page=1&size=20');
       set({ groups: groupByDate(res.data.content), isLoading: false });
     } catch (e: any) {
       set({ error: e.message, isLoading: false });

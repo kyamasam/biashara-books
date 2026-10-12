@@ -7,7 +7,7 @@ type InventoryState = {
   items: ProductInventoryResponse[];
   isLoading: boolean;
   error: string | null;
-  fetchInventory: (token: string) => Promise<void>;
+  fetchInventory: () => Promise<void>;
   clearInventory: () => void;
 };
 
@@ -15,10 +15,10 @@ export const useInventoryStore = create<InventoryState>((set) => ({
   items: [],
   isLoading: false,
   error: null,
-  fetchInventory: async (token) => {
+  fetchInventory: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authGet<{ data: ProductInventoryResponse[] }>('/api/inventory', token);
+      const response = await authGet<{ data: ProductInventoryResponse[] }>('/api/inventory');
       set({ items: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.message || 'Could not load inventory.', isLoading: false });

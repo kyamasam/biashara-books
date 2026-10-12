@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ApiError } from './api-error';
-import { deleteStoredToken } from './token-storage';
+import { deleteStoredToken, getStoredToken } from './token-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -55,8 +55,10 @@ function parseApiError(data: Record<string, unknown>): ApiError {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   const { headers: optHeaders, ...restOptions } = options;
+  const token = await getStoredToken('access_token');
   const mergedHeaders: Record<string, string> = {
     ...(typeof restOptions.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(optHeaders as Record<string, string> | undefined ?? {}),
   };
 
@@ -115,33 +117,20 @@ export function post<T>(path: string, body: RequestBody): Promise<T> {
   return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 }
 
-export function authPost<T>(path: string, body: RequestBody, token: string): Promise<T> {
-  return request<T>(path, {
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function authPost<T>(path: string, body: RequestBody): Promise<T> {
+  return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 }
 
-export function authGet<T>(path: string, token: string): Promise<T> {
-  return request<T>(path, {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function authGet<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'GET' });
 }
 
-export function authPut<T>(path: string, body: RequestBody, token: string): Promise<T> {
-  return request<T>(path, {
-    method: 'PUT',
-    body: JSON.stringify(body),
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function authPut<T>(path: string, body: RequestBody): Promise<T> {
+  return request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
 }
 
-export function authUpload<T>(path: string, formData: FormData, token: string): Promise<T> {
-  return request<T>(path, {
-    method: 'POST',
-    body: formData,
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export function authUpload<T>(path: string, formData: FormData): Promise<T> {
+  return request<T>(path, { method: 'POST', body: formData });
 }
+
+export const API_BASE_URL = BASE_URL;

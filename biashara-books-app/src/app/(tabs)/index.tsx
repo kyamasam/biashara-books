@@ -8,7 +8,6 @@ import { HomeHeader } from '@/components/home/home-header';
 import { QuickActions } from '@/components/home/quick-actions';
 import { TransactionSection } from '@/components/home/transaction-section';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { useTransactionStore } from '@/store/transaction-store';
 import { useUserStore } from '@/store/user-store';
@@ -16,7 +15,6 @@ import { useUserStore } from '@/store/user-store';
 export default function HomeScreen() {
     const safeAreaInsets = useSafeAreaInsets();
     const theme = useTheme();
-    const { accessToken } = useAuth();
     const isLoadingUser = useUserStore((s) => s.isLoading);
     const fetchUser = useUserStore((s) => s.fetchUser);
     const groups = useTransactionStore((s) => s.groups);
@@ -24,17 +22,13 @@ export default function HomeScreen() {
     const fetchTransactions = useTransactionStore((s) => s.fetchTransactions);
 
     useEffect(() => {
-        if (accessToken) {
-            void fetchTransactions(accessToken);
-        }
-    }, [accessToken, fetchTransactions]);
+        void fetchTransactions();
+    }, [fetchTransactions]);
 
     const handleRefresh = useCallback(() => {
-        if (accessToken) {
-            void fetchUser(accessToken);
-            void fetchTransactions(accessToken);
-        }
-    }, [accessToken, fetchUser, fetchTransactions]);
+        void fetchUser();
+        void fetchTransactions();
+    }, [fetchUser, fetchTransactions]);
 
     return (
         <ScrollView

@@ -154,7 +154,6 @@ const dateRangeToMonths = (range: DateRange) => {
 export default function AccountsScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const theme = useTheme();
-  const { accessToken } = useAuth();
   const { stats, isLoading, error, fetchStats } = useStatsStore();
   const { score, isLoading: scoreLoading, error: scoreError, fetchScore } = useBusinessScoreStore();
   const [selectedPreset, setSelectedPreset] = useState(PRESETS[0].label);
@@ -195,19 +194,15 @@ export default function AccountsScreen() {
   );
 
   const loadStats = useCallback(() => {
-    if (!accessToken) return;
-
     return fetchStats(
-      accessToken,
       formatLocalDateTime(dateRange.startDate),
       formatLocalDateTime(dateRange.endDate),
     );
-  }, [accessToken, dateRange.endDate, dateRange.startDate, fetchStats]);
+  }, [dateRange.endDate, dateRange.startDate, fetchStats]);
 
   const loadScore = useCallback(() => {
-    if (!accessToken) return;
-    return fetchScore(accessToken, dateRangeToMonths(dateRange));
-  }, [accessToken, dateRange, fetchScore]);
+    return fetchScore(dateRangeToMonths(dateRange));
+  }, [dateRange, fetchScore]);
 
   useEffect(() => {
     void loadStats();

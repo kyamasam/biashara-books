@@ -27,7 +27,7 @@ type BusinessScoreState = {
   score: BusinessScore | null;
   isLoading: boolean;
   error: string | null;
-  fetchScore: (token: string, months?: number) => Promise<void>;
+  fetchScore: (months?: number) => Promise<void>;
   clearScore: () => void;
 };
 
@@ -35,12 +35,11 @@ export const useBusinessScoreStore = create<BusinessScoreState>((set) => ({
   score: null,
   isLoading: false,
   error: null,
-  fetchScore: async (token, months = 1) => {
+  fetchScore: async (months = 1) => {
     set({ isLoading: true, error: null });
     try {
       const response = await authGet<{ data: BusinessScore }>(
         `/api/business-score?months=${months}`,
-        token,
       );
       set({ score: response.data, isLoading: false });
     } catch (error: any) {

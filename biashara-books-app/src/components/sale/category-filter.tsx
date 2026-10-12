@@ -13,7 +13,10 @@ type CategoryFilterProps = {
 export { FilterCategory };
 
 export function CategoryFilter({ categories, selected, onSelect }: CategoryFilterProps) {
-  const filterCategories: FilterCategory[] = ['All', ...categories.map((c) => c.name).filter((n): n is string => Boolean(n))];
+  const filterCategories: FilterCategory[] = [
+    'All',
+    ...Array.from(new Set(categories.map((c) => c.name).filter((n): n is string => Boolean(n)))),
+  ];
 
   return (
     <ScrollView
@@ -26,11 +29,7 @@ export function CategoryFilter({ categories, selected, onSelect }: CategoryFilte
           <Pressable
             key={category}
             onPress={() => onSelect(category)}
-            style={({ pressed }) => [
-              styles.chip,
-              isActive ? styles.chipActive : styles.chipInactive,
-              pressed && styles.pressed,
-            ]}>
+            style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
             <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>
               {category}
             </Text>

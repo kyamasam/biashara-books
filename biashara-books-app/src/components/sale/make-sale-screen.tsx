@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+import { ArrowRight } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -11,8 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ArrowRight } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HomeHeader } from '@/components/home/home-header';
@@ -338,6 +338,7 @@ export function MakeSaleScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: '#FEFDFF' }]}>
+     
       <FlatList
         data={products}
         keyExtractor={(item) => item.id}
@@ -394,42 +395,62 @@ export function MakeSaleScreen() {
             onDecrement={() => decrement(item)}
           />
         )}
-        ListFooterComponent={
-          productPage ? (
-            <View style={styles.pagination}>
+        ListEmptyComponent={
+          productPage !== null || apiProducts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No products yet</Text>
+              <Text style={styles.emptySubtitle}>Add your first product to start selling</Text>
               <TouchableOpacity
-                onPress={goToPreviousPage}
-                disabled={!canGoBack}
-                activeOpacity={0.75}
-                style={[styles.paginationButton, !canGoBack && styles.paginationButtonDisabled]}>
-                <Text
-                  style={[
-                    styles.paginationButtonText,
-                    !canGoBack && styles.paginationButtonTextDisabled,
-                  ]}>
-                  Previous
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.paginationText}>
-                Page {productPage.page} of {productPage.totalPages || 1}
-              </Text>
-              <TouchableOpacity
-                onPress={goToNextPage}
-                disabled={!canGoForward}
-                activeOpacity={0.75}
-                style={[styles.paginationButton, !canGoForward && styles.paginationButtonDisabled]}>
-                <Text
-                  style={[
-                    styles.paginationButtonText,
-                    !canGoForward && styles.paginationButtonTextDisabled,
-                  ]}>
-                  Next
-                </Text>
+                activeOpacity={0.85}
+                style={styles.emptyButton}
+                onPress={() => router.push('/products/new')}>
+                <Text style={styles.emptyButtonText}>+ Add Product</Text>
               </TouchableOpacity>
             </View>
           ) : null
         }
       />
+
+      {productPage && (
+        <View
+          style={[
+            styles.paginationBar,
+            {
+              bottom: cartTotal > 0 ? checkoutBarBottom + 64 : insets.bottom + BottomTabInset,
+              paddingHorizontal: H_PADDING,
+            },
+          ]}>
+          <TouchableOpacity
+            onPress={goToPreviousPage}
+            disabled={!canGoBack}
+            activeOpacity={0.75}
+            style={[styles.paginationButton, !canGoBack && styles.paginationButtonDisabled]}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                !canGoBack && styles.paginationButtonTextDisabled,
+              ]}>
+              Previous
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.paginationText}>
+            Page {productPage.page} of {productPage.totalPages}
+          </Text>
+          <TouchableOpacity
+            onPress={goToNextPage}
+            disabled={!canGoForward}
+            activeOpacity={0.75}
+            style={[styles.paginationButton, !canGoForward && styles.paginationButtonDisabled]}>
+            <Text
+              style={[
+                styles.paginationButtonText,
+                !canGoForward && styles.paginationButtonTextDisabled,
+              ]}>
+              Next
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {cartTotal > 0 && (
         <View
@@ -550,6 +571,17 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
   },
+  paginationBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#FEFDFF',
+    paddingVertical: Spacing.two,
+  },
   paginationButton: {
     backgroundColor: '#1A6B52',
     borderRadius: 18,
@@ -576,5 +608,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1F1F1F',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyButton: {
+    backgroundColor: PRIMARY_BUTTON_COLOR,
+    borderRadius: 14,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  emptyButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

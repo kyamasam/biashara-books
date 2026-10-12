@@ -46,15 +46,13 @@ export default function LoansScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const loadLoans = useCallback(async (showLoading = true) => {
-    if (!accessToken) return;
-
     if (showLoading) {
       setLoading(true);
     }
     setError(null);
 
     try {
-      const response = await authGet<SystemLoansResponse>('/api/loans/system', accessToken);
+      const response = await authGet<SystemLoansResponse>('/api/loans/system');
       setLoans(response.data);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load loans');
@@ -64,13 +62,11 @@ export default function LoansScreen() {
       }
       setRefreshing(false);
     }
-  }, [accessToken]);
+  }, []);
 
   const loadBusinessScore = useCallback(() => {
-    if (!accessToken) return;
-
-    return fetchScore(accessToken, 1);
-  }, [accessToken, fetchScore]);
+    return fetchScore(1);
+  }, [fetchScore]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {

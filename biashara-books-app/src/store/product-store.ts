@@ -1,16 +1,18 @@
+import { File, UploadType } from 'expo-file-system';
 import { create } from 'zustand';
 
-import { authPost, authUpload } from '@/lib/api';
+import { API_BASE_URL, authPost } from '@/lib/api';
+import { getStoredToken } from '@/lib/token-storage';
 import type { CreateProductRequest, UploadPhotoResponse } from '@/types/product';
 
 type ProductStoreState = {
   isUploading: boolean;
   isCreating: boolean;
   error: string | null;
-  uploadPhoto: (imageUri: string, token: string) => Promise<string>;
+  lastUploadedUrl: string | null;
+  uploadPhoto: (imageUri: string) => Promise<string>;
   createProduct: (
     payload: CreateProductRequest,
-    token: string,
     imageUri?: string,
   ) => Promise<{ id: string }>;
   clearError: () => void;
@@ -20,19 +22,32 @@ export const useProductStore = create<ProductStoreState>((set, get) => ({
   isUploading: false,
   isCreating: false,
   error: null,
+  lastUploadedUrl: null,
 
-  uploadPhoto: async (imageUri, token) => {
-    set({ isUploading: true, error: null });
+  uploadPhoto: async (imageUri) => {
+    set({ isUploading: true, error: null, lastUploadedUrl: null });
     try {
       const filename = imageUri.split('/').pop() ?? 'photo.jpg';
       const ext = filename.split('.').pop()?.toLowerCase() ?? 'jpg';
       const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
 
-      const formData = new FormData();
-      formData.append('file', { uri: imageUri, name: filename, type: mimeType } as unknown as Blob);
+      const token = await getStoredToken('access_token');
+      const url = `${API_BASE_URL.replace(/\/+$/, '')}/api/uploads/photo`;
 
-      const response = await authUpload<UploadPhotoResponse>('/api/uploads/photo', formData, token);
-      set({ isUploading: false });
+      const file = new File(imageUri);
+      const result = await file.upload(url, {
+        uploadType: UploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(`Upload failed with status ${result.status}`);
+      }
+
+      const response = JSON.parse(result.body) as UploadPhotoResponse;
+      set({ isUploading: false, lastUploadedUrl: response.data.url });
       return response.data.url;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Photo upload failed.';
@@ -41,19 +56,18 @@ export const useProductStore = create<ProductStoreState>((set, get) => ({
     }
   },
 
-  createProduct: async (payload, token, imageUri) => {
+  createProduct: async (payload, imageUri) => {
     set({ isCreating: true, error: null });
     try {
       let photoUrl = payload.photoUrl;
 
       if (imageUri) {
-        photoUrl = await get().uploadPhoto(imageUri, token);
+        photoUrl = await get().uploadPhoto(imageUri);
       }
 
       const response = await authPost<{ data: { id: string } }>(
         '/api/products',
         { ...payload, ...(photoUrl ? { photoUrl } : {}) } as Record<string, unknown>,
-        token,
       );
 
       set({ isCreating: false });

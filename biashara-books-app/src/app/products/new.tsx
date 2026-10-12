@@ -5,8 +5,8 @@ import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,7 +14,7 @@ import {
   Switch,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -35,6 +35,33 @@ import type {
   ProductCategory,
   UnitMetric,
 } from '@/types/product';
+import { Image } from 'expo-image';
+
+const UNIT_METRIC_OPTIONS: { value: UnitMetric; label: string; group: string }[] = [
+  { value: 'kg', label: 'kg — Kilogram', group: 'Weight' },
+  { value: 'g', label: 'g — Gram', group: 'Weight' },
+  { value: 'mg', label: 'mg — Milligram', group: 'Weight' },
+  { value: 'lb', label: 'lb — Pound', group: 'Weight' },
+  { value: 'oz', label: 'oz — Ounce', group: 'Weight' },
+  { value: 'l', label: 'l — Litre', group: 'Volume' },
+  { value: 'ml', label: 'ml — Millilitre', group: 'Volume' },
+  { value: 'm', label: 'm — Metre', group: 'Length' },
+  { value: 'cm', label: 'cm — Centimetre', group: 'Length' },
+  { value: 'mm', label: 'mm — Millimetre', group: 'Length' },
+  { value: 'ft', label: 'ft — Foot', group: 'Length' },
+  { value: 'dozen', label: 'dozen — Dozen (12)', group: 'Packaging' },
+  { value: 'box', label: 'box — Box', group: 'Packaging' },
+  { value: 'bag', label: 'bag — Bag', group: 'Packaging' },
+  { value: 'bundle', label: 'bundle — Bundle', group: 'Packaging' },
+  { value: 'pack', label: 'pack — Pack', group: 'Packaging' },
+  { value: 'crate', label: 'crate — Crate', group: 'Packaging' },
+  { value: 'carton', label: 'carton — Carton', group: 'Packaging' },
+  { value: 'roll', label: 'roll — Roll', group: 'Packaging' },
+  { value: 'pair', label: 'pair — Pair', group: 'Packaging' },
+  { value: 'set', label: 'set — Set', group: 'Packaging' },
+];
+
+const UNIT_GROUPS = ['Weight', 'Volume', 'Length', 'Packaging'];
 
 function parsePrice(value: string) {
   return Number(value.replace(/,/g, '')) || 0;
@@ -52,12 +79,13 @@ export default function NewProductScreen() {
   const theme = useTheme();
   const { accessToken } = useAuth();
   const { showError, showSuccess } = useToast();
-  const { createProduct, isUploading, isCreating } = useProductStore();
+  const { createProduct, uploadPhoto, isUploading, isCreating } = useProductStore();
 
   // Product fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -73,6 +101,8 @@ export default function NewProductScreen() {
   const [salePrice, setSalePrice] = useState('');
   const [priceIncludesTax, setPriceIncludesTax] = useState(false);
 
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
+
   const isPhysical = inventoryCategory === 'physical';
   const isUnit = inventoryType === 'unit';
   const isBusy = isUploading || isCreating;
@@ -84,7 +114,7 @@ export default function NewProductScreen() {
     async function loadCategories() {
       setIsLoadingCategories(true);
       try {
-        const response = await authGet<{ data: ProductCategory[] }>('/api/categories', accessToken!);
+        const response = await authGet<{ data: ProductCategory[] }>('/api/categories');
         if (!isMounted) return;
         setCategories(response.data ?? []);
         setSelectedCategoryId((c) => c || response.data?.[0]?.id || '');
@@ -102,6 +132,7 @@ export default function NewProductScreen() {
   }, [accessToken, showError]);
 
   async function pickImage() {
+    if (!accessToken) { showError('Please log in again.'); return; }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       showError('Permission to access photos is required.');
@@ -114,7 +145,16 @@ export default function NewProductScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      const uri = result.assets[0].uri;
+      console.log('[PhotoPicker] imageUri:', uri);
+      setImageUri(uri);
+      setUploadedPhotoUrl(null);
+      try {
+        const url = await uploadPhoto(uri);
+        setUploadedPhotoUrl(url);
+      } catch {
+        showError('Photo upload failed. You can still save — it will retry.');
+      }
     }
   }
 
@@ -140,10 +180,10 @@ export default function NewProductScreen() {
           ...(selectedCategoryId && { productCategoryId: selectedCategoryId }),
           inventoryCategory,
           inventoryType,
+          ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
           ...(isPhysical && isUnit && unitMetric ? { unitMetric } : {}),
         },
-        accessToken,
-        imageUri ?? undefined,
+        uploadedPhotoUrl ? undefined : (imageUri ?? undefined),
       );
 
       const inventoryPayload: CreateInventoryRequest = {
@@ -157,7 +197,7 @@ export default function NewProductScreen() {
         ...(isPhysical && isUnit && unitMetric ? { unitMetric } : {}),
       };
 
-      await authPost('/api/inventory', inventoryPayload, accessToken);
+      await authPost('/api/inventory', inventoryPayload);
       showSuccess('Product created.');
       router.back();
     } catch (error) {
@@ -193,8 +233,6 @@ export default function NewProductScreen() {
             Add a product to your catalogue and set its opening stock.
           </ThemedText>
 
-          {/* ─── Photo ─── */}
-          <PhotoPicker imageUri={imageUri} onPress={pickImage} isUploading={isUploading} />
 
           {/* ─── Product Details ─── */}
           <SectionLabel>Product Details</SectionLabel>
@@ -237,6 +275,12 @@ export default function NewProductScreen() {
             style={styles.multilineInput}
           />
 
+          {/* ─── Photo ─── */}
+          <PhotoPicker
+            imageUri={uploadedPhotoUrl ?? imageUri}
+            onPress={pickImage}
+            isUploading={isUploading}
+          />
           {/* ─── Classification ─── */}
           <SectionLabel>Classification</SectionLabel>
 
@@ -291,12 +335,26 @@ export default function NewProductScreen() {
           {isPhysical && isUnit && (
             <View style={styles.field}>
               <Text style={styles.label}>Unit Metric *</Text>
-              <View style={styles.segmented}>
-                <Segment label="kg  (weight)" selected={unitMetric === 'kg'} onPress={() => setUnitMetric('kg')} />
-                <Segment label="l  (volume)" selected={unitMetric === 'l'} onPress={() => setUnitMetric('l')} />
-              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setShowUnitPicker(true)}
+                style={styles.dropdownTrigger}>
+                <Text style={unitMetric ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {unitMetric
+                    ? UNIT_METRIC_OPTIONS.find((o) => o.value === unitMetric)?.label ?? unitMetric
+                    : 'Select a unit…'}
+                </Text>
+                <Text style={styles.dropdownChevron}>▾</Text>
+              </Pressable>
             </View>
           )}
+
+          <UnitMetricPicker
+            visible={showUnitPicker}
+            selected={unitMetric as UnitMetric | ''}
+            onSelect={(v) => { setUnitMetric(v); setShowUnitPicker(false); }}
+            onClose={() => setShowUnitPicker(false)}
+          />
 
           {/* ─── Stock ─── */}
           {isPhysical && (
@@ -384,7 +442,9 @@ function PhotoPicker({
         accessibilityRole="button"
         accessibilityLabel="Change product photo"
         onPress={onPress}
-        style={styles.photoPickerFilled}>
+        style={styles.photoPickerFilled}
+      >
+        {/* <Text>{imageUri}</Text> */}
         <Image source={{ uri: imageUri }} style={styles.photoPreview} />
         {isUploading ? (
           <View style={styles.photoOverlay}>
@@ -396,6 +456,7 @@ function PhotoPicker({
             <Pencil size={12} color="#FFFFFF" strokeWidth={2.5} />
           </View>
         )}
+
       </Pressable>
     );
   }
@@ -405,7 +466,7 @@ function PhotoPicker({
       accessibilityRole="button"
       accessibilityLabel="Add product photo"
       onPress={onPress}
-      style={({ pressed }) => [styles.photoPickerEmpty, pressed && styles.pressed]}>
+      style={styles.photoPickerEmpty}>
       <View style={styles.photoIconWrapper}>
         <ImageIcon size={28} color={BrandColors.primary} strokeWidth={1.5} />
       </View>
@@ -445,6 +506,52 @@ function Segment({
       {selected ? <Check size={15} color={BrandColors.primary} strokeWidth={2.8} /> : null}
       <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{label}</Text>
     </Pressable>
+  );
+}
+
+function UnitMetricPicker({
+  visible,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  selected: UnitMetric | '';
+  onSelect: (v: UnitMetric) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.pickerBackdrop} onPress={onClose} />
+      <View style={styles.pickerSheet}>
+        <View style={styles.pickerHeader}>
+          <Text style={styles.pickerTitle}>Select Unit Metric</Text>
+          <Pressable onPress={onClose} style={styles.pickerCloseBtn}>
+            <Text style={styles.pickerCloseText}>Done</Text>
+          </Pressable>
+        </View>
+        <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+          {UNIT_GROUPS.map((group) => (
+            <View key={group}>
+              <Text style={styles.pickerGroup}>{group}</Text>
+              {UNIT_METRIC_OPTIONS.filter((o) => o.group === group).map((option) => (
+                <Pressable
+                  key={option.value}
+                  onPress={() => onSelect(option.value)}
+                  style={[styles.pickerRow, selected === option.value && styles.pickerRowSelected]}>
+                  <Text style={[styles.pickerRowText, selected === option.value && styles.pickerRowTextSelected]}>
+                    {option.label}
+                  </Text>
+                  {selected === option.value && (
+                    <Check size={16} color={BrandColors.primary} strokeWidth={2.8} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
@@ -512,12 +619,12 @@ const styles = StyleSheet.create({
 
   // Photo picker — filled state
   photoPickerFilled: {
-    borderRadius: 12,
-    overflow: 'hidden',
+    borderRadius: 0,
     height: 180,
+    alignItems: "center",
   },
   photoPreview: {
-    width: '100%',
+    width: 100,
     height: '100%',
   },
   photoOverlay: {
@@ -662,4 +769,101 @@ const styles = StyleSheet.create({
   toggleBody: { flex: 1, gap: 3 },
 
   pressed: { opacity: 0.6 },
+
+  // Unit metric dropdown trigger
+  dropdownTrigger: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderColor: '#D8DDE0',
+    borderRadius: 8,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownValue: {
+    fontSize: 15,
+    color: Colors.light.text,
+    flex: 1,
+  },
+  dropdownPlaceholder: {
+    fontSize: 15,
+    color: Colors.light.textSecondary,
+    flex: 1,
+  },
+  dropdownChevron: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    marginLeft: Spacing.two,
+  },
+
+  // Unit metric picker modal
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    paddingBottom: Spacing.four,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.three,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  pickerCloseBtn: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  pickerCloseText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  pickerScroll: {
+    paddingHorizontal: Spacing.three,
+  },
+  pickerGroup: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: Colors.light.textSecondary,
+    marginTop: Spacing.three,
+    marginBottom: Spacing.one,
+    paddingHorizontal: Spacing.one,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 8,
+  },
+  pickerRowSelected: {
+    backgroundColor: '#E8F7EE',
+  },
+  pickerRowText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: '500',
+  },
+  pickerRowTextSelected: {
+    color: BrandColors.primary,
+    fontWeight: '700',
+  },
 });

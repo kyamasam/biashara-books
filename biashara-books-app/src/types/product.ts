@@ -82,7 +82,11 @@ export type CartMap = Record<string, number>;
 
 export type InventoryCategory = 'physical' | 'service';
 export type InventoryType = 'unit' | 'count';
-export type UnitMetric = 'kg' | 'l';
+export type UnitMetric =
+  | 'kg' | 'g' | 'mg' | 'lb' | 'oz'
+  | 'l' | 'ml'
+  | 'm' | 'cm' | 'mm' | 'ft'
+  | 'dozen' | 'box' | 'bag' | 'bundle' | 'pack' | 'crate' | 'carton' | 'roll' | 'pair' | 'set';
 
 export type InventoryProduct = {
   id: string;

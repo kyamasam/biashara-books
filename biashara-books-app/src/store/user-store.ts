@@ -7,8 +7,8 @@ interface UserState {
   isLoading: boolean;
   isRefreshingBalance: boolean;
   error: string | null;
-  fetchUser: (token: string) => Promise<void>;
-  refreshBalance: (token: string) => Promise<void>;
+  fetchUser: () => Promise<void>;
+  refreshBalance: () => Promise<void>;
   clearUser: () => void;
 }
 
@@ -17,23 +17,22 @@ export const useUserStore = create<UserState>((set) => ({
   isLoading: false,
   isRefreshingBalance: false,
   error: null,
-  fetchUser: async (token) => {
+  fetchUser: async () => {
     set({ isLoading: true, error: null });
     try {
-      const res = await authGet<{ data: UserProfile }>('/api/users/me', token);
+      const res = await authGet<{ data: UserProfile }>('/api/users/me');
       console.log('Current user API response:', res);
       set({ user: res.data, isLoading: false });
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
     }
   },
-  refreshBalance: async (token) => {
+  refreshBalance: async () => {
     set({ isRefreshingBalance: true, error: null });
     try {
       const res = await authPost<{ data: UserProfile['currentBusiness'] }>(
         '/api/businesses/current/refresh-balance',
         {},
-        token,
       );
       set((state) => ({
         user: state.user

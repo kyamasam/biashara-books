@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       await storeTokens(response.data.token);
       try {
-        const profile = await authGet<{ data: UserProfile }>('/api/users/me', response.data.token);
+        const profile = await authGet<{ data: UserProfile }>('/api/users/me');
         const businessName = profile.data.currentBusiness?.name ?? '';
         await Promise.all([
           setStoredToken(LAST_LOGIN_PHONE_KEY, response.data.phoneNumber),
@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       await storeTokens(response.data.token);
       try {
-        const profile = await authGet<{ data: UserProfile }>('/api/users/me', response.data.token);
+        const profile = await authGet<{ data: UserProfile }>('/api/users/me');
         const businessName = profile.data.currentBusiness?.name ?? payload.businessName;
         await Promise.all([
           setStoredToken(LAST_LOGIN_PHONE_KEY, response.data.phoneNumber),
@@ -200,13 +200,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [storeTokens],
   );
 
-  const setPin = useCallback(
-    async (pin: string, confirmPin: string) => {
-      if (!accessToken) throw new Error('Not authenticated');
-      await authPost('/users/set-pin/', { pin, confirm_pin: confirmPin }, accessToken);
-    },
-    [accessToken],
-  );
+  const setPin = useCallback(async (pin: string, confirmPin: string) => {
+    await authPost('/users/set-pin/', { pin, confirm_pin: confirmPin });
+  }, []);
 
   const logout = useCallback(async () => {
     await deleteStoredToken(ACCESS_TOKEN_KEY);

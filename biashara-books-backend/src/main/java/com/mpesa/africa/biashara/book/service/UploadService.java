@@ -35,7 +35,11 @@ public class UploadService {
         Path destination = uploadDir.resolve(filename);
 
         return file.transferTo(destination)
-                .then(Mono.fromCallable(() -> baseUrl + "/" + filename))
+                .then(Mono.fromCallable(() -> {
+                    String url = baseUrl + "/" + filename;
+                    log.info("Photo URL returned to client: {}", url);
+                    return url;
+                }))
                 .subscribeOn(Schedulers.boundedElastic())
                 .doOnSuccess(url -> log.info("Saved photo: {}", url))
                 .doOnError(e -> log.error("Failed to save photo: {}", e.getMessage()));
