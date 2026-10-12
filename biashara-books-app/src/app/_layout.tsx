@@ -59,6 +59,7 @@ export default function RootLayout() {
             <Stack.Screen name="inventory/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="inventory/edit/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="products/new" options={{ headerShown: false }} />
+            <Stack.Screen name="products/index" options={{ headerShown: false }} />
             <Stack.Screen name="loan/apply" options={{ headerShown: false }} />
             <Stack.Screen name="loan/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="loan/[id]/pay" options={{ headerShown: false }} />

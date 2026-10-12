@@ -4,6 +4,27 @@ import { deleteStoredToken, getStoredToken } from './token-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+/**
+ * Rewrites a URL whose origin is localhost/127.0.0.1 to use the configured
+ * API base URL origin instead. The backend stores absolute photo URLs using its
+ * own localhost origin, which is unreachable from a device or emulator.
+ */
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const base = new URL(BASE_URL);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+      parsed.hostname = base.hostname;
+      parsed.port = base.port;
+      parsed.protocol = base.protocol;
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 type RequestBody = Record<string, unknown>;
 
 let isHandlingUnauthorized = false;
@@ -106,6 +127,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw parseApiError(data);
   }
 
+  if (!text) return {} as T;
   return JSON.parse(text) as T;
 }
 

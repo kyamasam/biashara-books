@@ -96,7 +96,6 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<ApiResponse<Void>> deleteProduct(@PathVariable UUID id) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Deleting product: {} for user: {}", id, userId);

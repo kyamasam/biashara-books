@@ -1,7 +1,7 @@
 import { File, UploadType } from 'expo-file-system';
 import { create } from 'zustand';
 
-import { API_BASE_URL, authDelete, authGet, authPost, authPut } from '@/lib/api';
+import { API_BASE_URL, authDelete, authGet, authPost, authPut, resolveMediaUrl } from '@/lib/api';
 import { getStoredToken } from '@/lib/token-storage';
 import type {
   ApiProduct,
@@ -166,8 +166,9 @@ export const useProductStore = create<ProductStoreState>((set, get) => ({
       }
 
       const response = JSON.parse(result.body) as UploadPhotoResponse;
-      set({ isUploading: false, lastUploadedUrl: response.data.url });
-      return response.data.url;
+      const resolvedUrl = resolveMediaUrl(response.data.url) ?? response.data.url;
+      set({ isUploading: false, lastUploadedUrl: resolvedUrl });
+      return resolvedUrl;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Photo upload failed.';
       set({ isUploading: false, error: message });

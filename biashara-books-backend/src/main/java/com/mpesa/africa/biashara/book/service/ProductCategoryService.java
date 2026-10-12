@@ -40,7 +40,7 @@ public class ProductCategoryService {
     }
 
     public Flux<ProductCategory> getAllCategories() {
-        return productCategoryRepository.findAll();
+        return productCategoryRepository.findAllActive();
     }
 
     public Flux<ProductCategory> searchCategories(String name) {
@@ -59,6 +59,10 @@ public class ProductCategoryService {
     public Mono<Void> deleteCategory(UUID id) {
         return productCategoryRepository.findById(id)
                 .switchIfEmpty(Mono.error(new CustomException("Category not found")))
-                .flatMap(productCategoryRepository::delete);
+                .flatMap(category -> {
+                    category.setDeleted(true);
+                    return productCategoryRepository.save(category);
+                })
+                .then();
     }
 }

@@ -76,7 +76,7 @@ public class ProductService {
     public Mono<Product> getProductById(UUID id, UUID userId) {
         return resolveBusinessId(userId)
                 .flatMap(businessId -> productRepository.findById(id)
-                        .filter(product -> businessId.equals(product.getBusinessId()))
+                        .filter(product -> businessId.equals(product.getBusinessId()) && !product.isDeleted())
                         .switchIfEmpty(Mono.error(new CustomException("Product not found or access denied"))));
     }
 
@@ -128,9 +128,9 @@ public class ProductService {
     public Mono<Void> deleteProduct(UUID id, UUID userId) {
         return resolveBusinessId(userId)
                 .flatMap(businessId -> productRepository.findById(id)
-                        .filter(product -> businessId.equals(product.getBusinessId()))
+                        .filter(product -> businessId.equals(product.getBusinessId()) && !product.isDeleted())
                         .switchIfEmpty(Mono.error(new CustomException("Product not found or access denied")))
-                        .flatMap(productRepository::delete));
+                        .flatMap(product -> productRepository.softDeleteById(product.getId())));
     }
 
     private Mono<ProductResponse> enrichWithInventory(Product product, UUID userId) {

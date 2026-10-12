@@ -12,12 +12,15 @@ import java.util.UUID;
 @Repository
 public interface ProductCategoryRepository extends ReactiveCrudRepository<ProductCategory, UUID> {
 
-    @Query("SELECT * FROM product_categories WHERE name ILIKE CONCAT('%', $1, '%')")
+    @Query("SELECT * FROM product_categories WHERE is_deleted = false")
+    Flux<ProductCategory> findAllActive();
+
+    @Query("SELECT * FROM product_categories WHERE name ILIKE CONCAT('%', $1, '%') AND is_deleted = false")
     Flux<ProductCategory> findByNameContaining(String name);
 
-    @Query("SELECT * FROM product_categories WHERE LOWER(name) = LOWER($1) LIMIT 1")
+    @Query("SELECT * FROM product_categories WHERE LOWER(name) = LOWER($1) AND is_deleted = false LIMIT 1")
     Mono<ProductCategory> findByName(String name);
 
-    @Query("SELECT EXISTS(SELECT 1 FROM product_categories WHERE name = $1)")
+    @Query("SELECT EXISTS(SELECT 1 FROM product_categories WHERE name = $1 AND is_deleted = false)")
     Mono<Boolean> existsByName(String name);
 }

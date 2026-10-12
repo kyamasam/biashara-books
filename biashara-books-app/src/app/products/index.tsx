@@ -1,13 +1,10 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { Package, Pencil, Plus, Search, Trash2, X } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,28 +15,27 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PageHeader } from '@/components/page-header';
+import { CategoryManagement } from '@/components/products/category-management';
 import { ProductCategoryFilter } from '@/components/products/category-filter';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useToast } from '@/context/toast-context';
 import { useTheme } from '@/hooks/use-theme';
+import { resolveMediaUrl } from '@/lib/api';
 import { useProductStore } from '@/store/product-store';
-import type { ApiProduct, ProductCategory } from '@/types/product';
+import type { ApiProduct } from '@/types/product';
 
 const PAGE_SIZE = 20;
 
 const formatPrice = (price: number) =>
   `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-type CategoryModal =
-  | { mode: 'add' }
-  | { mode: 'edit'; category: ProductCategory };
-
 export default function ProductsScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const router = useRouter();
   const theme = useTheme();
-  const { showError, showSuccess } = useToast();
+  const { showError } = useToast();
   const {
     products,
     categories,
@@ -47,23 +43,16 @@ export default function ProductsScreen() {
     totalPages,
     isLoading,
     isFetchingMore,
-    isManagingCategory,
     fetchProducts,
     fetchCategories,
-    createCategory,
-    updateCategory,
-    deleteCategory,
     deleteProduct,
   } = useProductStore();
 
   const [search, setSearch] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
-  const [categoryModal, setCategoryModal] = useState<CategoryModal | null>(null);
-  const [categoryName, setCategoryName] = useState('');
-  const nameInputRef = useRef<TextInput>(null);
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
 
   const load = useCallback(
     (categoryId: string | null = selectedCategoryId) => {
@@ -80,12 +69,12 @@ export default function ProductsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handleCategorySelect(categoryName: string) {
-    if (categoryName === 'All') {
+  function handleCategorySelect(name: string) {
+    if (name === 'All') {
       setSelectedCategoryId(null);
       void fetchProducts(1, PAGE_SIZE).catch(() => showError('Could not load products.'));
     } else {
-      const cat = categories.find((c) => c.name === categoryName);
+      const cat = categories.find((c) => c.name === name);
       const id = cat?.id ?? null;
       setSelectedCategoryId(id);
       void fetchProducts(1, PAGE_SIZE, undefined, id ?? undefined).catch(() =>
@@ -96,51 +85,19 @@ export default function ProductsScreen() {
 
   function handleLoadMore() {
     if (currentPage >= totalPages || isFetchingMore) return;
-    void fetchProducts(currentPage + 1, PAGE_SIZE, undefined, selectedCategoryId ?? undefined, true).catch(() =>
-      showError('Could not load more products.'),
+    void fetchProducts(currentPage + 1, PAGE_SIZE, undefined, selectedCategoryId ?? undefined, true).catch(
+      () => showError('Could not load more products.'),
     );
   }
 
-  function openAddModal() {
-    setCategoryName('');
-    setCategoryModal({ mode: 'add' });
-    setTimeout(() => nameInputRef.current?.focus(), 100);
+  function handleCategoryDeleted(_deletedId: string) {
+    setSelectedCategoryId(null);
+    void fetchProducts(1, PAGE_SIZE).catch(() => showError('Could not reload products.'));
   }
 
-  function openEditModal(category: ProductCategory) {
-    setCategoryName(category.name);
-    setCategoryModal({ mode: 'edit', category });
-    setTimeout(() => nameInputRef.current?.focus(), 100);
-  }
-
-  function closeModal() {
-    setCategoryModal(null);
-    setCategoryName('');
-  }
-
-  async function handleSaveCategory() {
-    const trimmed = categoryName.trim();
-    if (!trimmed) return;
-
-    try {
-      if (categoryModal?.mode === 'add') {
-        await createCategory(trimmed);
-        showSuccess(`"${trimmed}" added.`);
-      } else if (categoryModal?.mode === 'edit') {
-        await updateCategory(categoryModal.category.id, trimmed);
-        showSuccess(`"${trimmed}" updated.`);
-      }
-      closeModal();
-    } catch {
-      showError('Could not save category.');
-    }
-  }
-
-
-  const selectedCategoryName =
-    selectedCategoryId
-      ? (categories.find((c) => c.id === selectedCategoryId)?.name ?? 'All')
-      : 'All';
+  const selectedCategoryName = selectedCategoryId
+    ? (categories.find((c) => c.id === selectedCategoryId)?.name ?? 'All')
+    : 'All';
 
   const filtered = search.trim()
     ? products.filter((p) => p.name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -153,7 +110,7 @@ export default function ProductsScreen() {
   function handleDelete(product: ApiProduct) {
     Alert.alert(
       'Delete Product',
-      `Remove "${product.name}" from your catalogue? This cannot be undone.`,
+      `Deleting "${product.name}" will also remove all its inventory records. This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -163,7 +120,6 @@ export default function ProductsScreen() {
             setDeletingId(product.id);
             try {
               await deleteProduct(product.id);
-              showSuccess(`"${product.name}" deleted.`);
             } catch {
               showError('Could not delete product.');
             } finally {
@@ -179,11 +135,13 @@ export default function ProductsScreen() {
 
   return (
     <>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
         style={[styles.scrollView, { backgroundColor: theme.background }]}
         contentContainerStyle={[
           styles.contentContainer,
           {
+            paddingTop: safeAreaInsets.top + Spacing.three,
             paddingBottom: safeAreaInsets.bottom + Spacing.four,
             paddingLeft: safeAreaInsets.left + Spacing.three,
             paddingRight: safeAreaInsets.right + Spacing.three,
@@ -199,6 +157,8 @@ export default function ProductsScreen() {
         }
         showsVerticalScrollIndicator={false}>
         <View style={styles.page}>
+          <PageHeader title="Products" showBack />
+
           <View style={styles.topRow}>
             <View style={[styles.searchRow, { flex: 1 }]}>
               <Search size={16} color={Colors.light.textSecondary} strokeWidth={2} />
@@ -216,9 +176,8 @@ export default function ProductsScreen() {
               accessibilityLabel="Add product"
               accessibilityRole="button"
               onPress={() => router.push('/products/new')}
-              style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-              <Plus size={18} color="#ffffff" strokeWidth={2.6} />
-              <Text style={styles.addButtonLabel}>Add</Text>
+              style={styles.addButton}>
+              <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
             </Pressable>
           </View>
 
@@ -226,7 +185,7 @@ export default function ProductsScreen() {
             categories={categories}
             selected={selectedCategoryName}
             onSelect={handleCategorySelect}
-            onPressAdd={openAddModal}
+            onPressAdd={() => setAddCategoryOpen(true)}
             onPressManage={() => setManageCategoriesOpen(true)}
           />
 
@@ -279,133 +238,14 @@ export default function ProductsScreen() {
         </View>
       </ScrollView>
 
-      {/* Category list / manage sheet */}
-      <Modal
-        visible={manageCategoriesOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setManageCategoriesOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setManageCategoriesOpen(false)} />
-          <View style={[styles.sheet, styles.manageSheet, { paddingBottom: safeAreaInsets.bottom + Spacing.three }]}>
-            <View style={styles.handle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Categories</Text>
-              <Pressable
-                onPress={() => setManageCategoriesOpen(false)}
-                style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}>
-                <X size={18} color={Colors.light.textSecondary} strokeWidth={2.2} />
-              </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.categoryList}>
-              {categories.length === 0 ? (
-                <Text style={styles.emptyCategoriesText}>No categories yet. Tap "+" to add one.</Text>
-              ) : (
-                categories.map((cat, idx) => (
-                  <View
-                    key={cat.id}
-                    style={[styles.categoryRow, idx < categories.length - 1 && styles.categoryRowBorder]}>
-                    <Text style={styles.categoryRowName} numberOfLines={1}>{cat.name}</Text>
-                    <View style={styles.categoryRowActions}>
-                      <Pressable
-                        accessibilityLabel={`Edit ${cat.name}`}
-                        onPress={() => {
-                          setManageCategoriesOpen(false);
-                          setTimeout(() => openEditModal(cat), 250);
-                        }}
-                        style={({ pressed }) => [styles.rowActionBtn, pressed && styles.pressed]}>
-                        <Pencil size={16} color={BrandColors.primary} strokeWidth={2.2} />
-                      </Pressable>
-                      <Pressable
-                        accessibilityLabel={`Delete ${cat.name}`}
-                        onPress={() => {
-                          Alert.alert(
-                            'Delete Category',
-                            `Remove "${cat.name}"? Products in this category will be uncategorised.`,
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                                text: 'Delete',
-                                style: 'destructive',
-                                onPress: async () => {
-                                  try {
-                                    await deleteCategory(cat.id);
-                                    if (selectedCategoryId === cat.id) {
-                                      setSelectedCategoryId(null);
-                                      void fetchProducts(1, PAGE_SIZE).catch(() =>
-                                        showError('Could not reload products.'),
-                                      );
-                                    }
-                                    showSuccess(`"${cat.name}" deleted.`);
-                                  } catch {
-                                    showError('Could not delete category.');
-                                  }
-                                },
-                              },
-                            ],
-                          );
-                        }}
-                        style={({ pressed }) => [styles.rowActionBtn, pressed && styles.pressed]}>
-                        <Trash2 size={16} color="#d72450" strokeWidth={2.2} />
-                      </Pressable>
-                    </View>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add / rename category sheet */}
-      <Modal
-        visible={categoryModal !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={closeModal}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeModal} />
-          <View style={[styles.sheet, { paddingBottom: safeAreaInsets.bottom + Spacing.three }]}>
-            <View style={styles.handle} />
-
-            <Text style={styles.sheetTitle}>
-              {categoryModal?.mode === 'add' ? 'New Category' : 'Rename Category'}
-            </Text>
-
-            <TextInput
-              ref={nameInputRef}
-              value={categoryName}
-              onChangeText={setCategoryName}
-              placeholder="Category name"
-              placeholderTextColor={Colors.light.textSecondary}
-              style={styles.sheetInput}
-              returnKeyType="done"
-              onSubmitEditing={handleSaveCategory}
-              autoCapitalize="words"
-            />
-
-            <Pressable
-              onPress={handleSaveCategory}
-              disabled={isManagingCategory || !categoryName.trim()}
-              style={({ pressed }) => [
-                styles.saveBtn,
-                (!categoryName.trim() || isManagingCategory) && styles.saveBtnDisabled,
-                pressed && styles.pressed,
-              ]}>
-              {isManagingCategory ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.saveBtnText}>
-                  {categoryModal?.mode === 'add' ? 'Add Category' : 'Save Changes'}
-                </Text>
-              )}
-            </Pressable>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <CategoryManagement
+        manageVisible={manageCategoriesOpen}
+        onManageClose={() => setManageCategoriesOpen(false)}
+        addVisible={addCategoryOpen}
+        onAddClose={() => setAddCategoryOpen(false)}
+        selectedCategoryId={selectedCategoryId}
+        onCategoryDeleted={handleCategoryDeleted}
+      />
     </>
   );
 }
@@ -425,7 +265,11 @@ function ProductCard({
     <View style={styles.card}>
       <View style={styles.cardPhoto}>
         {product.photoUrl ? (
-          <Image source={{ uri: product.photoUrl }} style={styles.photo} contentFit="cover" />
+          <Image
+            source={{ uri: resolveMediaUrl(product.photoUrl) ?? product.photoUrl }}
+            style={styles.photo}
+            contentFit="cover"
+          />
         ) : (
           <View style={styles.photoPlaceholder}>
             <Package size={22} color={BrandColors.primary} strokeWidth={1.5} />
@@ -489,22 +333,15 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 24,
     gap: Spacing.two,
   },
   addButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 10,
-    borderRadius: 10,
+    justifyContent: 'center',
     backgroundColor: BrandColors.primary,
-  },
-  addButtonLabel: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
+    borderRadius: 12,
+    width: 44,
+    height: 44,
   },
 
   searchRow: {
@@ -642,135 +479,16 @@ const styles = StyleSheet.create({
 
   cardActions: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    gap: Spacing.four,
   },
   actionBtn: {
     width: 36,
     height: 36,
     borderRadius: 8,
+    padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F0F3',
   },
   pressed: { opacity: 0.6 },
-
-  // Modal / sheet
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    gap: Spacing.three,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    marginBottom: Spacing.one,
-  },
-  sheetTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.light.text,
-  },
-  sheetInput: {
-    borderWidth: 1,
-    borderColor: '#D8DDE0',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: Colors.light.text,
-    backgroundColor: '#FAFAFA',
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-  },
-  deleteBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#d72450',
-  },
-  saveBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: BrandColors.primary,
-    minHeight: 48,
-  },
-  saveBtnDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  saveBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  // Manage categories sheet
-  manageSheet: {
-    maxHeight: '75%',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F0F3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryList: {
-    flexGrow: 0,
-  },
-  emptyCategoriesText: {
-    fontSize: 14,
-    color: Colors.light.textSecondary,
-    textAlign: 'center',
-    paddingVertical: Spacing.four,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    gap: Spacing.two,
-  },
-  categoryRowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
-  },
-  categoryRowName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    color: Colors.light.text,
-  },
-  categoryRowActions: {
-    flexDirection: 'row',
-    gap: Spacing.one,
-  },
-  rowActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F3',
-  },
 });

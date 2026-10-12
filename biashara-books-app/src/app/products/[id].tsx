@@ -1,5 +1,5 @@
-import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Camera, Check, Image as ImageIcon, Pencil } from 'lucide-react-native';
 import type { ComponentProps } from 'react';
@@ -25,7 +25,7 @@ import { BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { useTheme } from '@/hooks/use-theme';
-import { authGet } from '@/lib/api';
+import { authGet, resolveMediaUrl } from '@/lib/api';
 import { ApiError } from '@/lib/api-error';
 import { useProductStore } from '@/store/product-store';
 import type {
@@ -83,6 +83,7 @@ export default function EditProductScreen() {
   const [inventoryType, setInventoryType] = useState<InventoryType>('count');
   const [unitMetric, setUnitMetric] = useState<UnitMetric | ''>('');
   const [showUnitPicker, setShowUnitPicker] = useState(false);
+  const [showPhotoSourcePicker, setShowPhotoSourcePicker] = useState(false);
 
   const isPhysical = inventoryCategory === 'physical';
   const isUnit = inventoryType === 'unit';
@@ -106,7 +107,7 @@ export default function EditProductScreen() {
         const product = productResponse.data;
         setName(product.name);
         setDescription(product.description ?? '');
-        setUploadedPhotoUrl(product.photoUrl ?? null);
+        setUploadedPhotoUrl(resolveMediaUrl(product.photoUrl));
         setSelectedCategoryId(product.productCategoryId ?? '');
         setInventoryCategory(product.inventoryCategory);
         setInventoryType(product.inventoryType);
@@ -126,8 +127,20 @@ export default function EditProductScreen() {
     return () => { isMounted = false; };
   }, [accessToken, id, showError]);
 
-  async function pickImage() {
+  async function handleImageResult(uri: string) {
+    setImageUri(uri);
+    setUploadedPhotoUrl(null);
+    try {
+      const url = await uploadPhoto(uri);
+      setUploadedPhotoUrl(url);
+    } catch {
+      showError('Photo upload failed. You can still save.');
+    }
+  }
+
+  async function pickFromLibrary() {
     if (!accessToken) { showError('Please log in again.'); return; }
+    setShowPhotoSourcePicker(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       showError('Permission to access photos is required.');
@@ -140,15 +153,26 @@ export default function EditProductScreen() {
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
-      setImageUri(uri);
-      setUploadedPhotoUrl(null);
-      try {
-        const url = await uploadPhoto(uri);
-        setUploadedPhotoUrl(url);
-      } catch {
-        showError('Photo upload failed. You can still save.');
-      }
+      await handleImageResult(result.assets[0].uri);
+    }
+  }
+
+  async function pickFromCamera() {
+    if (!accessToken) { showError('Please log in again.'); return; }
+    setShowPhotoSourcePicker(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showError('Camera permission is required to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await handleImageResult(result.assets[0].uri);
     }
   }
 
@@ -200,154 +224,161 @@ export default function EditProductScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
-      style={styles.keyboardAvoidingView}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView
-        style={[styles.scrollView, { backgroundColor: theme.background }]}
-        contentContainerStyle={[
-          styles.contentContainer,
-          {
-            paddingTop: safeAreaInsets.top + Spacing.three,
-            paddingBottom: safeAreaInsets.bottom + Spacing.four,
-            paddingLeft: safeAreaInsets.left + Spacing.three,
-            paddingRight: safeAreaInsets.right + Spacing.three,
-          },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.page}>
-          <PageHeader title="Edit Product" showBack />
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          style={[styles.scrollView, { backgroundColor: theme.background }]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            {
+              paddingTop: safeAreaInsets.top + Spacing.three,
+              paddingBottom: safeAreaInsets.bottom + Spacing.four,
+              paddingLeft: safeAreaInsets.left + Spacing.three,
+              paddingRight: safeAreaInsets.right + Spacing.three,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.page}>
+            <PageHeader title="Edit Product" showBack />
 
-          <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-            Update the details for this product.
-          </ThemedText>
-
-          <SectionLabel>Product Details</SectionLabel>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Category</Text>
-            {isLoadingCategories ? (
-              <ActivityIndicator size="small" color={BrandColors.primary} style={{ alignSelf: 'flex-start' }} />
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                {categories.map((cat) => (
-                  <Pressable
-                    key={cat.id}
-                    accessibilityRole="button"
-                    onPress={() => setSelectedCategoryId(cat.id)}
-                    style={[styles.chip, selectedCategoryId === cat.id && styles.chipSelected]}>
-                    <Text style={[styles.chipText, selectedCategoryId === cat.id && styles.chipTextSelected]}>
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          <FormInput
-            label="Product Name *"
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Fresh Milk"
-          />
-
-          <FormInput
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Add product details…"
-            multiline
-            numberOfLines={3}
-            style={styles.multilineInput}
-          />
-
-          <PhotoPicker
-            imageUri={uploadedPhotoUrl ?? imageUri}
-            onPress={pickImage}
-            isUploading={isUploading}
-          />
-
-          <SectionLabel>Classification</SectionLabel>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Product Type</Text>
-            <View style={styles.segmented}>
-              <Segment
-                label="Physical"
-                selected={isPhysical}
-                onPress={() => setInventoryCategory('physical')}
-              />
-              <Segment
-                label="Service"
-                selected={!isPhysical}
-                onPress={() => {
-                  setInventoryCategory('service');
-                  setUnitMetric('');
-                }}
-              />
-            </View>
-            <ThemedText themeColor="textSecondary" style={styles.hint}>
-              {isPhysical
-                ? 'Physical goods that can be stocked and counted.'
-                : 'Intangible offerings like haircuts or delivery.'}
+            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+              Update the details for this product.
             </ThemedText>
-          </View>
 
-          {isPhysical && (
+            <SectionLabel>Product Details</SectionLabel>
+
             <View style={styles.field}>
-              <Text style={styles.label}>Sold By</Text>
+              <Text style={styles.label}>Category</Text>
+              {isLoadingCategories ? (
+                <ActivityIndicator size="small" color={BrandColors.primary} style={{ alignSelf: 'flex-start' }} />
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                  {categories.map((cat) => (
+                    <Pressable
+                      key={cat.id}
+                      accessibilityRole="button"
+                      onPress={() => setSelectedCategoryId(cat.id)}
+                      style={[styles.chip, selectedCategoryId === cat.id && styles.chipSelected]}>
+                      <Text style={[styles.chipText, selectedCategoryId === cat.id && styles.chipTextSelected]}>
+                        {cat.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            <FormInput
+              label="Product Name *"
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Fresh Milk"
+            />
+
+            <FormInput
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Add product details…"
+              multiline
+              numberOfLines={3}
+              style={styles.multilineInput}
+            />
+            {/* <Text>uri{(uploadedPhotoUrl ?? imageUri)}</Text> */}
+            <PhotoPicker
+              imageUri={uploadedPhotoUrl ?? imageUri}
+              onPress={() => setShowPhotoSourcePicker(true)}
+              isUploading={isUploading}
+            />
+
+            <PhotoSourcePicker
+              visible={showPhotoSourcePicker}
+              onCamera={pickFromCamera}
+              onLibrary={pickFromLibrary}
+              onClose={() => setShowPhotoSourcePicker(false)}
+            />
+
+            <SectionLabel>Classification</SectionLabel>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Product Type</Text>
               <View style={styles.segmented}>
                 <Segment
-                  label="Count (pcs)"
-                  selected={!isUnit}
+                  label="Physical"
+                  selected={isPhysical}
+                  onPress={() => setInventoryCategory('physical')}
+                />
+                <Segment
+                  label="Service"
+                  selected={!isPhysical}
                   onPress={() => {
-                    setInventoryType('count');
+                    setInventoryCategory('service');
                     setUnitMetric('');
                   }}
                 />
-                <Segment
-                  label="Unit (kg · l)"
-                  selected={isUnit}
-                  onPress={() => setInventoryType('unit')}
-                />
               </View>
+              <ThemedText themeColor="textSecondary" style={styles.hint}>
+                {isPhysical
+                  ? 'Physical goods that can be stocked and counted.'
+                  : 'Intangible offerings like haircuts or delivery.'}
+              </ThemedText>
             </View>
-          )}
 
-          {isPhysical && isUnit && (
-            <View style={styles.field}>
-              <Text style={styles.label}>Unit Metric *</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setShowUnitPicker(true)}
-                style={styles.dropdownTrigger}>
-                <Text style={unitMetric ? styles.dropdownValue : styles.dropdownPlaceholder}>
-                  {unitMetric
-                    ? UNIT_METRIC_OPTIONS.find((o) => o.value === unitMetric)?.label ?? unitMetric
-                    : 'Select a unit…'}
-                </Text>
-                <Text style={styles.dropdownChevron}>▾</Text>
-              </Pressable>
-            </View>
-          )}
+            {isPhysical && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Sold By</Text>
+                <View style={styles.segmented}>
+                  <Segment
+                    label="Count (pcs)"
+                    selected={!isUnit}
+                    onPress={() => {
+                      setInventoryType('count');
+                      setUnitMetric('');
+                    }}
+                  />
+                  <Segment
+                    label="Unit (kg · l)"
+                    selected={isUnit}
+                    onPress={() => setInventoryType('unit')}
+                  />
+                </View>
+              </View>
+            )}
 
-          <UnitMetricPicker
-            visible={showUnitPicker}
-            selected={unitMetric as UnitMetric | ''}
-            onSelect={(v) => { setUnitMetric(v); setShowUnitPicker(false); }}
-            onClose={() => setShowUnitPicker(false)}
-          />
+            {isPhysical && isUnit && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Unit Metric *</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setShowUnitPicker(true)}
+                  style={styles.dropdownTrigger}>
+                  <Text style={unitMetric ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                    {unitMetric
+                      ? UNIT_METRIC_OPTIONS.find((o) => o.value === unitMetric)?.label ?? unitMetric
+                      : 'Select a unit…'}
+                  </Text>
+                  <Text style={styles.dropdownChevron}>▾</Text>
+                </Pressable>
+              </View>
+            )}
 
-          <AppButton
-            label={isUploading ? 'Uploading photo…' : isCreating ? 'Saving…' : 'Save Changes'}
-            fullWidth
-            disabled={isBusy || isLoadingCategories}
-            onPress={handleSave}
-          />
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <UnitMetricPicker
+              visible={showUnitPicker}
+              selected={unitMetric as UnitMetric | ''}
+              onSelect={(v) => { setUnitMetric(v); setShowUnitPicker(false); }}
+              onClose={() => setShowUnitPicker(false)}
+            />
+
+            <AppButton
+              label={isUploading ? 'Uploading photo…' : isCreating ? 'Saving…' : 'Save Changes'}
+              fullWidth
+              disabled={isBusy || isLoadingCategories}
+              onPress={handleSave}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -398,6 +429,41 @@ function PhotoPicker({
       </View>
       <Camera size={18} color={Colors.light.textSecondary} strokeWidth={1.8} />
     </Pressable>
+  );
+}
+
+function PhotoSourcePicker({
+  visible,
+  onCamera,
+  onLibrary,
+  onClose,
+}: {
+  visible: boolean;
+  onCamera: () => void;
+  onLibrary: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.pickerBackdrop} onPress={onClose} />
+      <View style={styles.sourceSheet}>
+        <View style={styles.pickerHeader}>
+          <Text style={styles.pickerTitle}>Add Photo</Text>
+          <Pressable onPress={onClose} style={styles.pickerCloseBtn}>
+            <Text style={styles.pickerCloseText}>Cancel</Text>
+          </Pressable>
+        </View>
+        <Pressable style={styles.sourceRow} onPress={onCamera}>
+          <Camera size={22} color={BrandColors.primary} strokeWidth={1.8} />
+          <Text style={styles.sourceRowText}>Take Photo</Text>
+        </Pressable>
+        <View style={styles.sourceDivider} />
+        <Pressable style={styles.sourceRow} onPress={onLibrary}>
+          <ImageIcon size={22} color={BrandColors.primary} strokeWidth={1.8} />
+          <Text style={styles.sourceRowText}>Choose from Library</Text>
+        </Pressable>
+      </View>
+    </Modal>
   );
 }
 
@@ -676,4 +742,20 @@ const styles = StyleSheet.create({
   pickerRowSelected: { backgroundColor: '#E8F7EE' },
   pickerRowText: { fontSize: 14, color: Colors.light.text, fontWeight: '500' },
   pickerRowTextSelected: { color: BrandColors.primary, fontWeight: '700' },
+
+  sourceSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: Spacing.four,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 16,
+  },
+  sourceRowText: { fontSize: 15, color: Colors.light.text, fontWeight: '600' },
+  sourceDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB', marginHorizontal: Spacing.three },
 });

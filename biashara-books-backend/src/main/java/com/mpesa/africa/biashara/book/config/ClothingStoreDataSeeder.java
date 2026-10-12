@@ -172,10 +172,10 @@ public class ClothingStoreDataSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        seedClothingStoreProducts()
-                .doOnSuccess(ignored -> log.info("Clothing store product seed completed"))
-                .doOnError(error -> log.error("Clothing store product seed failed", error))
-                .block();
+        // seedClothingStoreProducts()
+        //         .doOnSuccess(ignored -> log.info("Clothing store product seed completed"))
+        //         .doOnError(error -> log.error("Clothing store product seed failed", error))
+        //         .block();
     }
 
     private Mono<Void> seedClothingStoreProducts() {

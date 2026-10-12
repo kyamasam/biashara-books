@@ -32,6 +32,7 @@ public class Product {
     private UnitMetrics unitMetric;
     private UUID userId;
     private UUID businessId;
+    private boolean isDeleted;
 
     @CreatedDate
     private LocalDateTime createdAt;

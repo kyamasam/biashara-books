@@ -21,6 +21,7 @@ public class ProductCategory {
     @Id
     private UUID id;
     private String name;
+    private boolean isDeleted;
 
     @CreatedDate
     private LocalDateTime createdAt;

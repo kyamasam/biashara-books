@@ -1,6 +1,7 @@
 package com.mpesa.africa.biashara.book.repository;
 
 import com.mpesa.africa.biashara.book.model.entity.Product;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
@@ -12,30 +13,31 @@ import java.util.UUID;
 @Repository
 public interface ProductRepository extends ReactiveCrudRepository<Product, UUID> {
 
-    @Query("SELECT * FROM products WHERE business_id = $1")
+    @Query("SELECT * FROM products WHERE business_id = $1 AND is_deleted = FALSE")
     Flux<Product> findByBusinessId(UUID businessId);
 
-    @Query("SELECT * FROM products WHERE product_category_id = $1")
+    @Query("SELECT * FROM products WHERE product_category_id = $1 AND is_deleted = FALSE")
     Flux<Product> findByProductCategoryId(UUID categoryId);
 
-    @Query("SELECT * FROM products WHERE business_id = $1 AND name ILIKE CONCAT('%', $2, '%')")
+    @Query("SELECT * FROM products WHERE business_id = $1 AND name ILIKE CONCAT('%', $2, '%') AND is_deleted = FALSE")
     Flux<Product> findByBusinessIdAndNameContaining(UUID businessId, String name);
 
-    @Query("SELECT COUNT(*) FROM products WHERE business_id = $1")
+    @Query("SELECT COUNT(*) FROM products WHERE business_id = $1 AND is_deleted = FALSE")
     Mono<Long> countByBusinessId(UUID businessId);
 
-    @Query("SELECT EXISTS(SELECT 1 FROM products WHERE business_id = $1 AND name = $2)")
+    @Query("SELECT EXISTS(SELECT 1 FROM products WHERE business_id = $1 AND name = $2 AND is_deleted = FALSE)")
     Mono<Boolean> existsByBusinessIdAndName(UUID businessId, String name);
 
-    @Query("SELECT * FROM products WHERE business_id = $1 AND name = $2")
+    @Query("SELECT * FROM products WHERE business_id = $1 AND name = $2 AND is_deleted = FALSE")
     Mono<Product> findByBusinessIdAndName(UUID businessId, String name);
 
-    @Query("SELECT * FROM products WHERE business_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3")
+    @Query("SELECT * FROM products WHERE business_id = $1 AND is_deleted = FALSE ORDER BY created_at DESC LIMIT $2 OFFSET $3")
     Flux<Product> findByBusinessIdPaged(UUID businessId, int limit, int offset);
 
     @Query("""
             SELECT * FROM products
             WHERE business_id = $1
+              AND is_deleted = FALSE
               AND ($2::varchar IS NULL OR name ILIKE CONCAT('%', $2, '%'))
               AND ($3::uuid IS NULL OR product_category_id = $3)
             ORDER BY created_at DESC
@@ -46,8 +48,13 @@ public interface ProductRepository extends ReactiveCrudRepository<Product, UUID>
     @Query("""
             SELECT COUNT(*) FROM products
             WHERE business_id = $1
+              AND is_deleted = FALSE
               AND ($2::varchar IS NULL OR name ILIKE CONCAT('%', $2, '%'))
               AND ($3::uuid IS NULL OR product_category_id = $3)
             """)
     Mono<Long> countByBusinessIdFiltered(UUID businessId, String name, UUID categoryId);
+
+    @Modifying
+    @Query("UPDATE products SET is_deleted = TRUE, updated_at = NOW() WHERE id = $1")
+    Mono<Void> softDeleteById(UUID id);
 }
