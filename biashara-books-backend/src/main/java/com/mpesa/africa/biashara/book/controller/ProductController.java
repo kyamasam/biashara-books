@@ -7,6 +7,9 @@ import com.mpesa.africa.biashara.book.model.dto.response.PageResponse;
 import com.mpesa.africa.biashara.book.model.dto.response.ProductResponse;
 import com.mpesa.africa.biashara.book.model.entity.Product;
 import com.mpesa.africa.biashara.book.service.ProductService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +25,23 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
+@Tag(name = "Products", description = "Manage products in the merchant's catalogue.")
 public class ProductController {
 
     private final ProductService productService;
 
+    @Operation(
+        summary = "Create a product",
+        description = """
+            Creates a new product in the merchant's catalogue.
+
+            **inventoryCategory** — `physical` for tangible goods (e.g. maize, clothing, electronics); `service` for intangible offerings (e.g. haircut, delivery, repair).
+
+            **inventoryType** — `unit` when sold by a measurable metric (e.g. kg, litres); `count` when sold as discrete whole pieces (e.g. 1 shirt, 3 bags).
+
+            **unitMetric** — Required when `inventoryType` is `unit`. `kg` for weight-based items, `l` for volume/liquid items.
+            """
+    )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ApiResponse<Product>> createProduct(@Valid @RequestBody ProductRequest request) {
@@ -43,12 +59,13 @@ public class ProductController {
         }).map(product -> ApiResponse.success(product, "Product retrieved successfully"));
     }
 
+    @Operation(summary = "List all products", description = "Returns a paginated list of products enriched with inventory totals.")
     @GetMapping
     public Mono<ApiResponse<PageResponse<ProductResponse>>> getAllProducts(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) UUID categoryId) {
+            @Parameter(description = "Page number (1-based)") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Filter by product name (case-insensitive contains)") @RequestParam(required = false) String name,
+            @Parameter(description = "Filter by product category ID") @RequestParam(required = false) UUID categoryId) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching products for user: {}, page: {}, size: {}, name: {}, categoryId: {}", userId, page, size, name, categoryId);
             return productService.getAllProducts(userId, page, size, name, categoryId);
@@ -63,6 +80,13 @@ public class ProductController {
         }).map(products -> ApiResponse.success(products, "Products retrieved successfully"));
     }
 
+    @Operation(
+        summary = "Update a product",
+        description = """
+            Updates an existing product. `inventoryCategory`, `inventoryType`, and `unitMetric` can be changed here \
+            and will apply to all subsequent inventory entries for this product.
+            """
+    )
     @PutMapping("/{id}")
     public Mono<ApiResponse<Product>> updateProduct(@PathVariable UUID id, @Valid @RequestBody ProductRequest request) {
         return getCurrentUserId().flatMap(userId -> {

@@ -13,16 +13,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExpenseList } from '@/components/expenses/expense-list';
 import { ExpensesCategoryFilter } from '@/components/expenses/expenses-category-filter';
 import {
+  type Expense,
   EXPENSE_MONTHS,
+  EXPENSE_YEARS,
   type ExpenseCategoryFilter,
   type ExpenseGroup,
-  type Expense,
 } from '@/components/expenses/expenses-data';
 import { ExpensesPageHeader } from '@/components/expenses/expenses-page-header';
 import { ExpensesSectionHeader } from '@/components/expenses/expenses-section-header';
 import { ExpensesSummaryCard } from '@/components/expenses/expenses-summary-card';
 import { AppIcon, type AppIconName } from '@/components/ui/app-icon';
 import { PeriodSelection } from '@/components/ui/month-dropdown';
+import { YearPeriodSelection } from '@/components/ui/year-dropdown';
 import { BottomTabInset, BrandColors, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
@@ -89,8 +91,12 @@ function formatGroupLabel(dateKey: string) {
   });
 }
 
-function getPeriodLabel(selection: PeriodSelection) {
-  if (selection.type === 'month') return selection.label;
+function getPeriodLabel(selection?: PeriodSelection | null, year?: YearPeriodSelection | null) {
+  if (!selection) return 'All Time';
+
+  const yearSuffix = year ? ` ${year.value}` : '';
+
+  if (selection.type === 'month') return `${selection.label}${yearSuffix}`;
 
   return `${new Date(`${selection.startDate}T00:00:00`).toLocaleDateString('en-KE', {
     month: 'short',
@@ -98,13 +104,27 @@ function getPeriodLabel(selection: PeriodSelection) {
   })} - ${new Date(`${selection.endDate}T00:00:00`).toLocaleDateString('en-KE', {
     month: 'short',
     day: 'numeric',
-  })}`;
+  })}${yearSuffix}`;
 }
 
-function isInSelectedPeriod(expense: Expense, selection: PeriodSelection) {
-  if (selection.type === 'month') return expense.date.startsWith(selection.value);
+function isInSelectedPeriod(
+  expense: Expense,
+  selection: PeriodSelection,
+  year: YearPeriodSelection,
+) {
+  if (selection.type === 'month') {
+    // selection.value may be 'MM' or 'YYYY-MM' — normalize to 'MM'
+    const month = selection.value.slice(-2);
+    return expense.date.startsWith(`${year.value}-${month}`);
+  }
 
-  return expense.date >= selection.startDate && expense.date <= selection.endDate;
+  // Custom range: keep the range check, but also clamp it to the selected year
+  const yearStart = `${year.value}-01-01`;
+  const yearEnd = `${year.value}-12-31`;
+  const start = selection.startDate > yearStart ? selection.startDate : yearStart;
+  const end = selection.endDate < yearEnd ? selection.endDate : yearEnd;
+
+  return expense.date >= start && expense.date <= end;
 }
 
 function groupExpenses(expenses: Expense[]): ExpenseGroup[] {
@@ -132,8 +152,15 @@ export default function ExpensesScreen() {
   const theme = useTheme();
   const { accessToken } = useAuth();
   const { showError } = useToast();
+  const currentYearString = new Date().getFullYear().toString();
+  const currentMonthString = (new Date().getMonth() + 1).toString().padStart(2, '0');
 
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodSelection>(EXPENSE_MONTHS[5]);
+  const defaultYear = EXPENSE_YEARS.find((y) => y.value === currentYearString) || EXPENSE_YEARS[0];
+  const defaultMonth = EXPENSE_MONTHS.find((m) => m.value === currentMonthString) || EXPENSE_MONTHS[0];
+
+
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodSelection>(defaultMonth);
+  const [selectedPeriodYear, setSelectedPeriodYear] = useState<YearPeriodSelection>(defaultYear);
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategoryFilter>('All');
   const [expenseTypes, setExpenseTypes] = useState<ExpenseType[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
@@ -172,13 +199,13 @@ export default function ExpensesScreen() {
   const filteredExpenses = useMemo(
     () =>
       mappedExpenses.filter((expense) => {
-        const matchesPeriod = isInSelectedPeriod(expense, selectedPeriod);
+        const matchesPeriod = isInSelectedPeriod(expense, selectedPeriod, selectedPeriodYear);
         const matchesType =
           activeCategory === 'All' || expense.expenseTypeId === activeCategory;
 
         return matchesPeriod && matchesType;
       }),
-    [activeCategory, mappedExpenses, selectedPeriod],
+    [activeCategory, mappedExpenses, selectedPeriod, selectedPeriodYear],
   );
 
   const filteredGroups: ExpenseGroup[] = useMemo(
@@ -201,11 +228,11 @@ export default function ExpensesScreen() {
 
   const expenseSummary = useMemo(
     () => ({
-      month: getPeriodLabel(selectedPeriod),
+      month: getPeriodLabel(selectedPeriod, selectedPeriodYear),
       totalSpent: filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0),
       pointsEarned: 0,
     }),
-    [filteredExpenses, selectedPeriod],
+    [filteredExpenses, selectedPeriod, selectedPeriodYear],
   );
 
   useEffect(() => {
@@ -266,10 +293,14 @@ export default function ExpensesScreen() {
         <View style={styles.page}>
           <ExpensesPageHeader />
 
+          
           <ExpensesSectionHeader
             months={EXPENSE_MONTHS}
+            years={EXPENSE_YEARS}
             selected={selectedPeriod}
             onSelect={setSelectedPeriod}
+            selected_year={selectedPeriodYear}
+            onSelectYear={setSelectedPeriodYear}
             onSearchPress={handleSearchPress}
           />
 

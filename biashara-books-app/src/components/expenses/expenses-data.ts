@@ -25,6 +25,11 @@ export type MonthOption = {
   value: string;
   type: 'month';
 };
+export type YearOption = {
+  label: string;
+  value: string;
+  type: 'year';
+};
 
 export type ExpenseSummary = {
   month: string;
@@ -32,13 +37,26 @@ export type ExpenseSummary = {
   pointsEarned: number;
 };
 
+export const EXPENSE_YEARS: YearOption[] = Array.from(
+  { length: 2040 - 2010 + 1 },
+  (_, i) => {
+    const year = String(2010 + i);
+    return { type: 'year', label: year, value: year };
+  }
+);
 export const EXPENSE_MONTHS: MonthOption[] = [
-  { type: 'month', label: 'January', value: '2026-01' },
-  { type: 'month', label: 'February', value: '2026-02' },
-  { type: 'month', label: 'March', value: '2026-03' },
-  { type: 'month', label: 'April', value: '2026-04' },
-  { type: 'month', label: 'May', value: '2026-05' },
-  { type: 'month', label: 'June', value: '2026-06' },
+  { type: 'month', label: 'January', value: '01' },
+  { type: 'month', label: 'February', value: '02' },
+  { type: 'month', label: 'March', value: '03' },
+  { type: 'month', label: 'April', value: '04' },
+  { type: 'month', label: 'May', value: '05' },
+  { type: 'month', label: 'June', value: '06' },
+  { type: 'month', label: 'July', value: '07' },
+  { type: 'month', label: 'August', value: '08' },
+  { type: 'month', label: 'September', value: '09' },
+  { type: 'month', label: 'October', value: '10' },
+  { type: 'month', label: 'November', value: '11' },
+  { type: 'month', label: 'December', value: '12' },
 ];
 
 export const EXPENSE_CATEGORY_FILTERS: ExpenseCategoryFilter[] = [

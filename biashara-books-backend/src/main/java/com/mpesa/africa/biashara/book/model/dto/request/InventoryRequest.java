@@ -1,8 +1,6 @@
 package com.mpesa.africa.biashara.book.model.dto.request;
 
-import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
-import com.mpesa.africa.biashara.book.model.enums.InventoryTypes;
-import com.mpesa.africa.biashara.book.model.enums.UnitMetrics;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -21,16 +19,8 @@ public class InventoryRequest {
     @NotNull(message = "Product ID is required")
     private UUID productId;
 
-    @NotNull(message = "Inventory category is required")
-    private InventoryCategory inventoryCategory;
-
-    @NotNull(message = "Inventory type is required")
-    private InventoryTypes inventoryType;
-
     @Positive(message = "Quantity must be positive")
     private Double quantity;
-
-    private UnitMetrics unitMetric;
 
     @NotNull(message = "Unit purchase price is required")
     @Positive(message = "Unit purchase price must be positive")
@@ -40,6 +30,10 @@ public class InventoryRequest {
     @Positive(message = "Unit sale price must be positive")
     private BigDecimal unitSalePrice;
 
+    @Schema(
+        description = "Indicates whether the sale price already includes tax (e.g. VAT). Set to true if the unitSalePrice is the final tax-inclusive price shown to customers. Set to false if tax is calculated and added on top at checkout.",
+        example = "false"
+    )
     private Boolean priceIncludesTax;
 
     private UUID locationId;

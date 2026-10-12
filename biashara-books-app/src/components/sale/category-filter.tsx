@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { ProductCategory } from '@/types/product';
 
@@ -23,15 +23,18 @@ export function CategoryFilter({ categories, selected, onSelect }: CategoryFilte
       {filterCategories.map((category) => {
         const isActive = selected === category;
         return (
-          <TouchableOpacity
+          <Pressable
             key={category}
             onPress={() => onSelect(category)}
-            activeOpacity={0.75}
-            style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
+            style={({ pressed }) => [
+              styles.chip,
+              isActive ? styles.chipActive : styles.chipInactive,
+              pressed && styles.pressed,
+            ]}>
             <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>
               {category}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </ScrollView>
@@ -66,5 +69,8 @@ const styles = StyleSheet.create({
   },
   chipTextInactive: {
     color: '#374151',
+  },
+  pressed: {
+    opacity: 0.65,
   },
 });

@@ -218,6 +218,8 @@ public class ClothingStoreDataSeeder implements ApplicationRunner {
                         .photoUrl(seedProduct.photoUrl())
                         .description(seedProduct.description())
                         .productCategoryId(category.getId())
+                        .inventoryCategory(InventoryCategory.physical)
+                        .inventoryType(InventoryTypes.count)
                         .userId(business.getUserId())
                         .businessId(business.getId())
                         .build()))
@@ -234,9 +236,7 @@ public class ClothingStoreDataSeeder implements ApplicationRunner {
 
                     return inventoryRepository.save(Inventory.builder()
                                     .productId(product.getId())
-                                    .inventoryCategory(InventoryCategory.physical)
                                     .quantity(seedProduct.quantity())
-                                    .inventoryType(InventoryTypes.count)
                                     .unitPurchasePrice(seedProduct.unitPurchasePrice())
                                     .unitSalePrice(BigDecimal.valueOf(seedProduct.unitSalePrice()))
                                     .priceIncludesTax(false)

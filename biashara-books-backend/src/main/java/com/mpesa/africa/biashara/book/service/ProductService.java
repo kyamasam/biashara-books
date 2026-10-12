@@ -38,6 +38,9 @@ public class ProductService {
                             .photoUrl(request.getPhotoUrl())
                             .description(request.getDescription())
                             .productCategoryId(request.getProductCategoryId())
+                            .inventoryType(request.getInventoryType())
+                            .inventoryCategory(request.getInventoryCategory())
+                            .unitMetric(request.getUnitMetric())
                             .userId(userId)
                             .businessId(businessId)
                             .build();
@@ -90,6 +93,9 @@ public class ProductService {
                             existingProduct.setPhotoUrl(request.getPhotoUrl());
                             existingProduct.setDescription(request.getDescription());
                             existingProduct.setProductCategoryId(request.getProductCategoryId());
+                            existingProduct.setInventoryType(request.getInventoryType());
+                            existingProduct.setInventoryCategory(request.getInventoryCategory());
+                            existingProduct.setUnitMetric(request.getUnitMetric());
                             return productRepository.save(existingProduct);
                         }));
     }

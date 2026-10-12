@@ -55,9 +55,9 @@ function parseApiError(data: Record<string, unknown>): ApiError {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   const { headers: optHeaders, ...restOptions } = options;
-  const mergedHeaders = {
-    'Content-Type': 'application/json',
-    ...(optHeaders ?? {}),
+  const mergedHeaders: Record<string, string> = {
+    ...(typeof restOptions.body === 'string' ? { 'Content-Type': 'application/json' } : {}),
+    ...(optHeaders as Record<string, string> | undefined ?? {}),
   };
 
   console.log(`[API] ${options.method ?? 'GET'} ${url}`);
@@ -126,6 +126,22 @@ export function authPost<T>(path: string, body: RequestBody, token: string): Pro
 export function authGet<T>(path: string, token: string): Promise<T> {
   return request<T>(path, {
     method: 'GET',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function authPut<T>(path: string, body: RequestBody, token: string): Promise<T> {
+  return request<T>(path, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function authUpload<T>(path: string, formData: FormData, token: string): Promise<T> {
+  return request<T>(path, {
+    method: 'POST',
+    body: formData,
     headers: { Authorization: `Bearer ${token}` },
   });
 }

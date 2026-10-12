@@ -82,12 +82,73 @@ export type CartMap = Record<string, number>;
 
 export type InventoryCategory = 'physical' | 'service';
 export type InventoryType = 'unit' | 'count';
+export type UnitMetric = 'kg' | 'l';
+
+export type InventoryProduct = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  description: string | null;
+  productCategoryId: string;
+  businessId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InventoryListItem = {
+  id: string;
+  productId: string;
+  product: InventoryProduct | null;
+  inventoryCategory: InventoryCategory;
+  inventoryType: InventoryType;
+  quantity: number | null;
+  unitMetric: UnitMetric | null;
+  unitPurchasePrice: number;
+  unitSalePrice: number;
+  priceIncludesTax: boolean;
+  locationId: string | null;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApiInventoryWithProduct = {
+  inventory: Omit<InventoryListItem, 'product'>;
+  product: InventoryProduct | null;
+};
+
+export type ProductInventoryResponse = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  description: string | null;
+  productCategoryId: string;
+  businessId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  inventories: Omit<InventoryListItem, 'product'>[];
+  totalQuantity: number;
+  inStock: boolean;
+};
 
 export type CreateProductRequest = {
   name: string;
   description?: string;
   photoUrl?: string;
   productCategoryId?: string;
+  inventoryCategory: InventoryCategory;
+  inventoryType: InventoryType;
+  unitMetric?: UnitMetric;
+};
+
+export type UploadPhotoResponse = {
+  success: boolean;
+  message: string;
+  data: { url: string };
+  timestamp: string;
+  path: null;
 };
 
 export type CreateInventoryRequest = {
@@ -95,8 +156,9 @@ export type CreateInventoryRequest = {
   inventoryCategory: InventoryCategory;
   inventoryType: InventoryType;
   quantity?: number;
-  unitMetric?: string;
+  unitMetric?: UnitMetric;
   unitPurchasePrice: number;
   unitSalePrice: number;
   priceIncludesTax: boolean;
+  locationId?: string;
 };

@@ -2,20 +2,27 @@ import { Search } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MonthDropdown, type PeriodSelection } from '@/components/ui/month-dropdown';
+import { YearDropdown, type YearPeriodSelection } from '@/components/ui/year-dropdown';
 import { Spacing } from '@/constants/theme';
 
-import type { MonthOption } from './expenses-data';
+import type { MonthOption, YearOption } from './expenses-data';
 
 type ExpensesSectionHeaderProps = {
   months: MonthOption[];
+  years: YearOption[];
   selected: PeriodSelection;
+  selected_year: YearPeriodSelection;
+  onSelectYear: (selection: YearPeriodSelection) => void;
   onSelect: (selection: PeriodSelection) => void;
   onSearchPress: () => void;
 };
 
 export function ExpensesSectionHeader({
   months,
+  years,
   selected,
+  selected_year,
+  onSelectYear,
   onSelect,
   onSearchPress,
 }: ExpensesSectionHeaderProps) {
@@ -30,13 +37,22 @@ export function ExpensesSectionHeader({
         <Search size={20} color="#111111" strokeWidth={2.4} />
       </Pressable>
 
-      <MonthDropdown  months={months} selected={selected} onSelect={onSelect} />
+      <View style={styles.periodDropdownSection}>
+        <YearDropdown years={years} selected={selected_year} onSelect={onSelectYear} />
+        <MonthDropdown months={months} selected={selected} onSelect={onSelect} />
+      </View>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
+  periodDropdownSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  }, header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -49,7 +65,7 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     backgroundColor: '#ffffff',
   },
- 
+
   pressed: {
     borderWidth: 2,
 

@@ -3,8 +3,13 @@ package com.mpesa.africa.biashara.book.controller;
 import com.mpesa.africa.biashara.book.config.JwtAuthenticationToken;
 import com.mpesa.africa.biashara.book.model.dto.request.InventoryRequest;
 import com.mpesa.africa.biashara.book.model.dto.response.ApiResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.InventoryWithProductResponse;
+import com.mpesa.africa.biashara.book.model.dto.response.ProductInventoryResponse;
 import com.mpesa.africa.biashara.book.model.entity.Inventory;
 import com.mpesa.africa.biashara.book.service.InventoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,10 +25,25 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/inventory")
 @RequiredArgsConstructor
+@Tag(
+    name = "Inventory",
+    description = "Manage inventory records for products in the merchant's business."
+)
 public class InventoryController {
 
     private final InventoryService inventoryService;
 
+    @Operation(
+        summary = "Create an inventory entry",
+        description = """
+            Adds a new inventory record for a product. Category, type, and unit of measurement are set on \
+            the product itself — see `POST /api/products`.
+
+            **priceIncludesTax** — Set `true` if `unitSalePrice` is already the final tax-inclusive price shown to customers. Set `false` if tax is added on top at checkout.
+
+            Required fields: `productId`, `unitPurchasePrice`, `unitSalePrice`. `quantity` is required for physical products.
+            """
+    )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ApiResponse<Inventory>> createInventory(@Valid @RequestBody InventoryRequest request) {
@@ -34,23 +54,29 @@ public class InventoryController {
     }
 
     @GetMapping("/{id}")
-    public Mono<ApiResponse<Inventory>> getInventoryById(@PathVariable UUID id) {
+    public Mono<ApiResponse<InventoryWithProductResponse>> getInventoryById(@PathVariable UUID id) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching inventory: {} for user: {}", id, userId);
             return inventoryService.getInventoryById(id, userId);
         }).map(inventory -> ApiResponse.success(inventory, "Inventory retrieved successfully"));
     }
 
+    @Operation(summary = "List all inventory grouped by product",
+        description = "Returns each product once with its nested inventory entries, total quantity, and stock status.")
     @GetMapping
-    public Mono<ApiResponse<List<Inventory>>> getAllInventory() {
+    public Mono<ApiResponse<List<ProductInventoryResponse>>> getAllInventory(
+            @Parameter(description = "Filter by product name (case-insensitive contains)")
+            @RequestParam(required = false) String productName,
+            @Parameter(description = "true = in-stock only (totalQuantity > 0), false = out-of-stock only")
+            @RequestParam(required = false) Boolean inStock) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching all inventory for user: {}", userId);
-            return inventoryService.getAllInventory(userId).collectList();
+            return inventoryService.getAllInventory(userId, productName, inStock).collectList();
         }).map(inventory -> ApiResponse.success(inventory, "Inventory retrieved successfully"));
     }
 
     @GetMapping("/product/{productId}")
-    public Mono<ApiResponse<List<Inventory>>> getInventoryByProduct(@PathVariable UUID productId) {
+    public Mono<ApiResponse<List<InventoryWithProductResponse>>> getInventoryByProduct(@PathVariable UUID productId) {
         return getCurrentUserId().flatMap(userId -> {
             log.info("Fetching inventory for product: {} for user: {}", productId, userId);
             return inventoryService.getInventoryByProduct(productId, userId).collectList();

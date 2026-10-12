@@ -129,7 +129,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'Make Sale', icon: ReceiptText },
   { label: 'Purchases', icon: ShoppingBag },
   { label: 'Expenses', icon: WalletCards, href: '/expenses' },
-  { label: 'Stock', icon: Archive },
+  { label: 'Stock', icon: Archive, href: '/inventory' },
 ];
 
 const formatMoney = (value = 0) =>

@@ -1,5 +1,8 @@
 package com.mpesa.africa.biashara.book.model.entity;
 
+import com.mpesa.africa.biashara.book.model.enums.InventoryCategory;
+import com.mpesa.africa.biashara.book.model.enums.InventoryTypes;
+import com.mpesa.africa.biashara.book.model.enums.UnitMetrics;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +27,9 @@ public class Product {
     private String photoUrl;
     private String description;
     private UUID productCategoryId;
+    private InventoryTypes inventoryType;
+    private InventoryCategory inventoryCategory;
+    private UnitMetrics unitMetric;
     private UUID userId;
     private UUID businessId;
 
