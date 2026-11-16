@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Camera, Check, Image as ImageIcon, Pencil } from 'lucide-react-native';
 import type { ComponentProps } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -27,6 +27,7 @@ import { useToast } from '@/context/toast-context';
 import { useTheme } from '@/hooks/use-theme';
 import { authGet } from '@/lib/api';
 import { ApiError } from '@/lib/api-error';
+import { pendingCapturedUri, setPendingCapturedUri } from '@/lib/camera-result';
 import { useProductStore } from '@/store/product-store';
 import type {
   InventoryCategory,
@@ -160,6 +161,25 @@ export default function NewProductScreen() {
     }
   }
 
+  function openCamera() {
+    setPendingCapturedUri(null);
+    router.push('/products/camera');
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingCapturedUri) {
+        const uri = pendingCapturedUri;
+        setPendingCapturedUri(null);
+        setImageUri(uri);
+        setUploadedPhotoUrl(null);
+        uploadPhoto(uri)
+          .then(setUploadedPhotoUrl)
+          .catch(() => showError('Photo upload failed. You can still save — it will retry.'));
+      }
+    }, [uploadPhoto, showError])
+  );
+
   function validate(): string | null {
     if (!name.trim()) return 'Enter a product name.';
     if (isPhysical && isUnit && !unitMetric) return 'Choose a unit metric (kg or l).';
@@ -276,9 +296,11 @@ export default function NewProductScreen() {
           />
 
           {/* ─── Photo ─── */}
+          <Text style={styles.label}>Product Image</Text>
           <PhotoPicker
             imageUri={uploadedPhotoUrl ?? imageUri}
             onPress={pickImage}
+            onTakePhoto={openCamera}
             isUploading={isUploading}
           />
           {/* ─── Classification ─── */}
@@ -452,10 +474,12 @@ export default function NewProductScreen() {
 function PhotoPicker({
   imageUri,
   onPress,
+  onTakePhoto,
   isUploading,
 }: {
   imageUri: string | null;
   onPress: () => void;
+  onTakePhoto: () => void;
   isUploading: boolean;
 }) {
   if (imageUri) {
@@ -466,7 +490,6 @@ function PhotoPicker({
         onPress={onPress}
         style={styles.photoPickerFilled}
       >
-        {/* <Text>{imageUri}</Text> */}
         <Image source={{ uri: imageUri }} style={styles.photoPreview} />
         {isUploading ? (
           <View style={styles.photoOverlay}>
@@ -478,26 +501,29 @@ function PhotoPicker({
             <Pencil size={12} color="#FFFFFF" strokeWidth={2.5} />
           </View>
         )}
-
       </Pressable>
     );
   }
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Add product photo"
-      onPress={onPress}
-      style={styles.photoPickerEmpty}>
-      <View style={styles.photoIconWrapper}>
-        <ImageIcon size={28} color={BrandColors.primary} strokeWidth={1.5} />
-      </View>
-      <View style={styles.photoPickerText}>
-        <Text style={styles.photoPickerTitle}>Add a product photo</Text>
-        <Text style={styles.photoPickerSubtitle}>Tap to choose from your library</Text>
-      </View>
-      <Camera size={18} color={Colors.light.textSecondary} strokeWidth={1.8} />
-    </Pressable>
+    <View style={styles.photoPickerRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Choose photo from library"
+        onPress={onPress}
+        style={styles.photoPickerButton}>
+        <ImageIcon size={20} color={BrandColors.primary} strokeWidth={1.8} />
+        <Text style={styles.photoPickerButtonText}>Library</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Take a photo"
+        onPress={onTakePhoto}
+        style={styles.photoPickerButton}>
+        <Camera size={20} color={BrandColors.primary} strokeWidth={1.8} />
+        <Text style={styles.photoPickerButtonText}>Take Photo</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -637,6 +663,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.textSecondary,
     fontWeight: '400',
+  },
+  photoPickerRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  photoPickerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#D8DDE0',
+    borderRadius: 12,
+    backgroundColor: '#FAFBFC',
+  },
+  photoPickerButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BrandColors.primary,
   },
 
   // Photo picker — filled state

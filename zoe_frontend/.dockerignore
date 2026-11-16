@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.env.local
+.DS_Store
+.git/
+tsconfig.tsbuildinfo
+pnpm-lock.yaml
+README.md

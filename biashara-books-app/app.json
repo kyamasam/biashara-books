@@ -44,7 +44,13 @@
       "expo-secure-store",
       "expo-font",
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Allow Biashara Books to use the camera to capture product photos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
